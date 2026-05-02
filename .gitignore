@@ -1,8 +1,16 @@
-# Ignore all markdown files
-*.md
+# Only ignore specific documentation files
+ARCHITECTURE.md
+CLAUDE.md
+PORTING_PROMPTS.md
+PORTING_PROMPTS_RESULT.md
+PROJECT_ANALYTICS.md
+implementation_plan.md
+master_plan.md
+master_plan_result.md
+prompts_strategy.md
+task.md
+Giai thich/
 
-# Except README.md (if you decide to create one later)
-!README.md
 
 # Ignore local OS junk
 Thumbs.db
