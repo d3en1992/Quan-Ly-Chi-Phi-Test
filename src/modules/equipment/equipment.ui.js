@@ -687,28 +687,6 @@ function tbSaveEdit(id) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// EXPORT CSV
-// ══════════════════════════════════════════════════════════════
-
-function tbExportCSV() {
-  const fCt    = document.getElementById('tb-filter-ct')?.value || '';
-  const fTt    = document.getElementById('tb-filter-tt')?.value || '';
-  const tbData = window.tbData || [];
-  const data   = tbData.filter(r => {
-    if (r.deletedAt) return false;
-    if (fCt && r.ct !== fCt) return false;
-    if (fTt && r.tinhtrang !== fTt) return false;
-    return true;
-  });
-  const rows = [['Công Trình', 'Tên Thiết Bị', 'Số Lượng', 'Tình Trạng', 'Người TH', 'Ghi Chú', 'Cập Nhật']];
-  data.forEach(r => {
-    const ct = (typeof window._resolveCtName === 'function') ? window._resolveCtName(r) : (r.ct || '');
-    rows.push([ct, r.ten, r.soluong || 0, r.tinhtrang || '', r.nguoi || '', r.ghichu || '', r.ngay || '']);
-  });
-  if (typeof window.dlCSV === 'function') window.dlCSV(rows, 'thiet_bi_' + today() + '.csv');
-}
-
-// ══════════════════════════════════════════════════════════════
 // KHO TỔNG
 // ══════════════════════════════════════════════════════════════
 
@@ -857,7 +835,6 @@ export function initEquipmentUI() {
   window.tbDeleteRow        = tbDeleteRow;
   window.tbLuanChuyen       = tbLuanChuyen;
   window.tbSaveEdit         = tbSaveEdit;
-  window.tbExportCSV        = tbExportCSV;
   window.renderKhoTong      = renderKhoTong;
   window.khoGoTo            = khoGoTo;
   window.tbRenderThongKeVon = tbRenderThongKeVon;

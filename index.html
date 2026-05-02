@@ -412,7 +412,6 @@
           <div class="section-title"><span class="dot"></span>Nhập Hóa Đơn</div>
           <div class="btn-group">
             <button class="btn btn-outline" onclick="clearTable()">🗑 Xóa bảng</button>
-            <button class="btn btn-outline" onclick="exportEntryCSV()">⬇ Xuất CSV</button>
           </div>
         </div>
 
@@ -615,6 +614,9 @@
   </div>
 
   <!-- PAGE: CT -->
+  <div class="page active" id="page-congtrinh">
+    <div id="ct-overview-wrap"></div>
+  </div>
 
   <!-- PAGE: THEO DÕI THIẾT BỊ -->
   <div class="page" id="page-thietbi">
@@ -634,7 +636,6 @@
           <option value="Cần bảo trì">Cần bảo trì</option>
           <option value="Cần sửa chữa">Cần sửa chữa</option>
         </select>
-        <button class="btn btn-outline btn-sm" onclick="tbExportCSV()">⬇ Xuất CSV</button>
       </div>
     </div>
 
@@ -752,7 +753,6 @@
     <div style="margin-top:28px">
       <div class="section-header">
         <div class="section-title"><span class="dot"></span>🔧 Tools</div>
-        <span style="font-size:12px;color:var(--ink3)" id="backup-status-label"></span>
       </div>
 
       <div class="records-wrap" style="padding:16px 20px">
@@ -766,15 +766,6 @@
           </div>
         </div>
 
-        <!-- BACKUP -->
-        <div style="margin-bottom:20px">
-          <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">Backup</div>
-          <div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Bản sao lưu tự động (giữ 3 bản gần nhất)</div>
-          <div id="backup-list-wrap">
-            <div style="color:var(--ink3);font-size:13px;padding:8px 0">Đang tải...</div>
-          </div>
-        </div>
-
         <!-- EXCEL -->
         <div style="margin-bottom:20px">
           <div style="font-size:11px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">Excel</div>
@@ -784,35 +775,10 @@
           </div>
         </div>
 
-        <!-- KIỂM TRA SỨC KHỎE DỮ LIỆU -->
-        <div style="margin-bottom:20px">
-          <div style="font-size:11px;font-weight:700;color:#1a7a45;margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">🩺 Sức Khỏe Dữ Liệu</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
-            <button class="btn"
-              style="background:#e8f5e9;color:#1a7a45;border:1px solid #a5d6a7;font-weight:600"
-              onclick="toolDataHealth()"
-              title="Quét và sửa dữ liệu lỗi: tên CT là ngày, thiếu projectId, chấm công trùng">
-              🩺 Kiểm tra sức khỏe dữ liệu
-            </button>
-            <button class="btn"
-              style="background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9;font-weight:600"
-              onclick="toolUpgradeSchema()"
-              title="Chuẩn hóa toàn bộ projectId & chuyển ID số sang UUID (có Dry Run + Backup)">
-              ⚙️ Nâng cấp cấu trúc dữ liệu
-            </button>
-          </div>
-        </div>
-
         <!-- NGUY HIỂM -->
         <div style="margin-bottom:20px">
           <div style="font-size:11px;font-weight:700;color:#c0392b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">⚠ Quản Lý Dữ Liệu</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
-            <button class="btn" id="btn-delete-year"
-              style="background:#fff3cd;color:#856404;border:1px solid #ffc107;font-weight:600"
-              onclick="toolDeleteYear()"
-              title="Xóa tất cả dữ liệu của năm đang chọn (hóa đơn, chấm công, tiền ứng, thu tiền, hợp đồng)">
-              🗑 Xóa dữ liệu năm đang chọn
-            </button>
             <button class="btn"
               style="background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;font-weight:600"
               onclick="toolResetAll()"
@@ -825,7 +791,6 @@
         <!-- Mô tả -->
         <div style="padding:10px 14px;background:var(--bg);border-radius:6px;border:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.7">
           <strong style="color:var(--ink2)">Cách hoạt động:</strong><br>
-          • <b>Tự động</b>: App tạo bản sao lưu ngầm sau 1 phút kể từ khi mở, sau đó mỗi 30 phút<br>
           • <b>Xuất snapshot</b>: Tải toàn bộ dữ liệu ra file .json — dùng để chuyển thiết bị hoặc lưu trữ<br>
           • <b>Import JSON</b>: Khôi phục từ snapshot — xóa toàn bộ dữ liệu hiện tại và ghi đè lên cloud<br>
           • <b>Data version</b>: <span id="data-version-badge" style="background:var(--green);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700"></span>
@@ -842,7 +807,6 @@
       <div class="section-title"><span class="dot"></span>Nhập Tiền Ứng</div>
       <div class="btn-group">
         <button class="btn btn-outline" onclick="clearUngTable()">🗑 Xóa bảng</button>
-        <button class="btn btn-outline" onclick="exportUngEntryCSV()">⬇ Xuất CSV</button>
         <button class="btn btn-green" id="ung-save-btn" onclick="saveAllUngRows()">💾 Lưu tất cả</button>
       </div>
     </div>
@@ -889,7 +853,6 @@
       <div class="section-header">
         <div class="section-title"><span class="dot"></span>Tổng Tiền Ứng</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-outline" onclick="exportUngAllCSV()">⬇ Xuất CSV</button>
           <button class="btn btn-sm" onclick="exportUngToImage()"
             style="background:#2563eb;color:#fff;border:none;font-weight:700"
             title="Tick chọn dòng rồi bấm để xuất phiếu tạm ứng PNG">
@@ -921,7 +884,6 @@
       <div class="section-title"><span class="dot"></span>Sổ Chấm Công</div>
       <div class="btn-group">
         <button class="btn btn-outline btn-sm" onclick="clearCCWeek()">🗑 Xóa bảng</button>
-        <button class="btn btn-outline btn-sm" onclick="exportCCWeekCSV()">⬇ CSV</button>
         <button class="btn btn-outline btn-sm" id="cc-copy-btn" onclick="copyCCWeek()" title="Copy toàn bộ CN + ngày công + lương tuần này">📋 Copy tuần</button>
         <button class="btn btn-outline btn-sm" id="cc-paste-btn" onclick="pasteCCWeek()" title="Dán toàn bộ CN + ngày công đã copy" style="display:none">📌 Dán</button>
         <button id="cc-save-btn" class="btn btn-green btn-sm" onclick="saveCCWeek()">💾 Lưu tuần này</button>
@@ -980,7 +942,6 @@
         <div class="btn-group">
           <select class="filter-sel" id="cc-tlt-ct" onchange="ccTltPage=1;renderCCTLT()"><option value="">Tất cả CT</option></select>
           <select class="filter-sel" id="cc-tlt-week" onchange="ccTltPage=1;renderCCTLT()"><option value="">Tất cả tuần</option></select>
-          <button class="btn btn-outline btn-sm" onclick="exportCCTLTCSV()">⬇ Xuất CSV</button>
           <button class="btn btn-sm" onclick="xuatPhieuLuong()"
             style="background:#2563eb;color:#fff;border:none;font-weight:700"
             title="Tick chọn công nhân trong bảng rồi bấm để xuất phiếu lương PNG">
@@ -1027,7 +988,6 @@
           </div>
           <select class="filter-sel" id="cc-hist-ct" onchange="ccHistPage=1;renderCCHistory()"><option value="">Tất cả CT</option></select>
           <select class="filter-sel" id="cc-hist-week" onchange="ccHistPage=1;renderCCHistory()"><option value="">Tất cả tuần</option></select>
-          <button class="btn btn-outline btn-sm" onclick="exportCCHistCSV()">⬇ Xuất CSV</button>
         </div>
       </div>
       <div class="records-wrap">

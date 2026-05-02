@@ -1339,19 +1339,6 @@ export function _doExport() { exportExcel(); }
 // [13] CSV EXPORTS
 // ══════════════════════════════════════════════════════════════
 
-export function exportEntryCSV() {
-  const rows = [['Loại Chi Phí','Công Trình','Người TH','Nhà Cung Cấp','Nội Dung','Số Tiền']];
-  document.querySelectorAll('#entry-tbody tr').forEach(tr => {
-    const loai = tr.querySelector('[data-f="loai"]')?.value || '';
-    const ct   = tr.querySelector('[data-f="ct"]')?.value   || '';
-    if (!loai && !ct) return;
-    const tien = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw || '0', 10) || 0;
-    rows.push([loai, ct, tr.querySelector('[data-f="nguoi"]')?.value||'', tr.querySelector('[data-f="ncc"]')?.value||'', tr.querySelector('[data-f="nd"]')?.value||'', tien]);
-  });
-  const _today = (typeof window.today === 'function') ? window.today() : new Date().toISOString().slice(0,10);
-  if (typeof window.dlCSV === 'function') window.dlCSV(rows, 'nhap_' + _today + '.csv');
-}
-
 export function exportAllCSV() {
   const _today = (typeof window.today === 'function') ? window.today() : new Date().toISOString().slice(0,10);
   const _resolveName = window.resolveProjectName;
@@ -1378,7 +1365,6 @@ export function initExcelService() {
   window.openExportModal          = openExportModal;
   window.exportExcel              = exportExcel;
   window._doExport                = _doExport;
-  window.exportEntryCSV           = exportEntryCSV;
   window.exportAllCSV             = exportAllCSV;
   window.toolImportExcel          = toolImportExcel;
   window.toolExportExcel          = toolExportExcel;
@@ -1413,7 +1399,7 @@ initExcelService();
 
 window._excelSvc = {
   initExcelService, openImportModal, handleImportFile,
-  openExportModal, exportExcel, _doExport, exportEntryCSV, exportAllCSV,
+  openExportModal, exportExcel, _doExport, exportAllCSV,
   toolImportExcel, toolExportExcel, _toggleAllImportSheets, _applyImport,
 };
 

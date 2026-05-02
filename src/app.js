@@ -30,7 +30,6 @@ import './modules/projects/project.logic.js';
 import { initProjectUI }
   from './modules/projects/project.ui.js';
 import './modules/cloud/cloud.ui.js';
-import './modules/cloud/backup.ui.js';
 import './modules/invoices/invoice.logic.js';
 import './modules/invoices/invoice.ui.js';
 import './modules/payroll/payroll.logic.js';
@@ -60,10 +59,6 @@ import { initDashboard }
   from './modules/dashboard/dashboard.module.js';
 import { initSettings, toolDeleteYear, toolResetAll }
   from './modules/settings/settings.module.js';
-import { startAutoBackup }
-  from './modules/backup/backup.logic.js';
-import { initBackupUI }
-  from './modules/backup/backup.ui.js';
 import { initRevenueUI }
   from './modules/revenue/revenue.ui.js';
 import { initAdmin }
@@ -86,8 +81,6 @@ function init() {
   if (typeof window.updateJbBtn === 'function')  window.updateJbBtn();
 
   if (typeof window.migrateData === 'function')  window.migrateData();
-
-  if (typeof window.autoBackup === 'function')   window.autoBackup();
 
   buildYearSelect();
   if (typeof window.renderTrash === 'function')          window.renderTrash();
@@ -127,6 +120,13 @@ function init() {
 window._dataReady = false;
 
 async function bootstrap() {
+  // Load Firebase config from localStorage trước khi init bất cứ thứ gì
+  const fbConfig = window._loadLS ? window._loadLS('fb_config') : JSON.parse(localStorage.getItem('fb_config') || 'null');
+  if (fbConfig && window.FB_CONFIG) {
+    window.FB_CONFIG.projectId = fbConfig.projectId;
+    window.FB_CONFIG.apiKey = fbConfig.apiKey;
+  }
+
   // 1. Init IndexedDB
   await window.dbInit();
 
@@ -181,7 +181,6 @@ async function bootstrap() {
   init();
 
   // Init ES module subsystems
-  initBackupUI();
   initDashboard();
   initSettings();
   initRevenueUI();

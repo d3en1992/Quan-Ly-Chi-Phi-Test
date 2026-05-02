@@ -982,134 +982,6 @@ function updateTLTSelectedSum() {
 
 export function ccTltGoTo(p) { window.ccTltPage = p; renderCCTLT(); }
 
-// ══════════════════════════════════════════════════════════════
-//  CSV EXPORTS
-// ══════════════════════════════════════════════════════════════
-
-export function exportCCWeekCSV() {
-  const _dlCSV  = typeof window.dlCSV  === 'function' ? window.dlCSV  : () => {};
-  const _today  = typeof window.today  === 'function' ? window.today  : () => new Date().toISOString().split('T')[0];
-
-  const f    = document.getElementById('cc-from')?.value || '';
-  const ct   = document.getElementById('cc-ct-sel')?.value || '?';
-  const rows = [['CT','Từ','Đến','Tên','CN','T2','T3','T4','T5','T6','T7','TC','Lương/N','Tổng Lương','Phụ Cấp','Vay Mới','HĐ Mua Lẻ','Trừ Nợ','Nội Dung','Thực Lãnh']];
-  document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)').forEach(tr => {
-    const name = tr.querySelector('[data-cc="name"]')?.value?.trim() || '';
-    if (!name) return;
-    const d = []; for (let i = 0; i < 7; i++) d.push(parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value || 0) || 0);
-    const tc  = round1(d.reduce((s, v) => s + v, 0));
-    const l   = parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw   || 0) || 0;
-    const pc  = parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw  || 0) || 0;
-    const ln  = parseInt(tr.querySelector('[data-cc="loan"]')?.dataset?.raw    || 0) || 0;
-    const hd  = parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw    || 0) || 0;
-    const tru = parseInt(tr.querySelector('[data-cc="tru"]')?.dataset?.raw     || 0) || 0;
-    const nd  = tr.querySelector('[data-cc="nd"]')?.value?.trim() || '';
-    rows.push([ct, f, document.getElementById('cc-to')?.value || '', name, ...d, tc, l, tc * l, pc, ln, hd, tru, nd, tc * l + pc + ln + hd - tru]);
-  });
-  _dlCSV(rows, 'chamcong_' + f + '.csv');
-}
-
-export function exportCCTLTCSV() {
-  const _dlCSV    = typeof window.dlCSV  === 'function' ? window.dlCSV  : () => {};
-  const _today    = typeof window.today  === 'function' ? window.today  : () => new Date().toISOString().split('T')[0];
-  const ccData    = window.ccData || [];
-  const inActiveYearFn = typeof window.inActiveYear === 'function' ? window.inActiveYear : () => true;
-  const _resolveCT = typeof window._resolveCtName === 'function' ? window._resolveCtName : w => w.ct || '';
-
-  const fWk  = document.getElementById('cc-tlt-week')?.value  || '';
-  const fCt2 = document.getElementById('cc-tlt-ct')?.value    || '';
-  const map  = {};
-
-  ccData.forEach(w => {
-    if (w.deletedAt) return;
-    if (!inActiveYearFn(w.fromDate)) return;
-    if (fCt2 && !(w.projectId === fCt2 || w.ctPid === fCt2 || w.ct === fCt2)) return;
-    if (fWk && w.fromDate !== fWk) return;
-    const ctDisplay = _resolveCT(w);
-    (w.workers || []).forEach(wk => {
-      const key = fWk ? w.fromDate + '|' + wk.name : wk.name;
-      if (!map[key]) map[key] = { fromDate: w.fromDate, toDate: w.toDate, name: wk.name,
-        d: [0,0,0,0,0,0,0], tc: 0, tl: 0, pc: 0, hdml: 0, loan: 0, tru: 0, cts: [] };
-      (wk.d || []).forEach((v, i) => { map[key].d[i] += v; });
-      const tc = round1((wk.d || []).reduce((s, v) => s + v, 0));
-      map[key].tc += tc; map[key].tl += tc * (wk.luong || 0);
-      map[key].pc += (wk.phucap || 0); map[key].hdml += (wk.hdmuale || 0);
-      map[key].loan += (wk.loanAmount || 0); map[key].tru += (wk.tru || 0);
-      if (!map[key].cts.includes(ctDisplay)) map[key].cts.push(ctDisplay);
-      if (!fWk) {
-        if (w.fromDate < map[key].fromDate) map[key].fromDate = w.fromDate;
-        if (w.toDate   > map[key].toDate)   map[key].toDate   = w.toDate;
-      }
-    });
-  });
-  Object.values(map).forEach(r => { r.tc = round1(r.tc); r.d = r.d.map(v => round1(v)); });
-
-  const csvRows = [['Tuần','Tên CN','CN','T2','T3','T4','T5','T6','T7','TC','TC Lương','Lương TB/Ngày','Vay Mới','Trừ Nợ','Thực Lãnh','Công Trình']];
-  Object.values(map)
-    .sort((a, b) => fWk
-      ? b.fromDate.localeCompare(a.fromDate) || a.name.localeCompare(b.name, 'vi')
-      : a.name.localeCompare(b.name, 'vi'))
-    .forEach(r => {
-      const tcL        = r.tl + r.pc + r.hdml;
-      const ltb        = r.tc > 0 ? Math.round(tcL / r.tc) : 0;
-      const thucLanh_  = r.tl + r.pc + r.loan + r.hdml - r.tru;
-      const periodStr  = fWk ? viShort(r.fromDate) + '–' + viShort(r.toDate) : 'Tổng';
-      csvRows.push([periodStr, r.name, ...r.d, r.tc, tcL, ltb, r.loan, r.tru, thucLanh_, r.cts.join(', ')]);
-    });
-  _dlCSV(csvRows, 'tong_luong_tuan_' + _today() + '.csv');
-}
-
-export function exportCCHistCSV() {
-  const _dlCSV    = typeof window.dlCSV  === 'function' ? window.dlCSV  : () => {};
-  const _today    = typeof window.today  === 'function' ? window.today  : () => new Date().toISOString().split('T')[0];
-  const ccData    = window.ccData || [];
-  const inActiveYearFn = typeof window.inActiveYear === 'function' ? window.inActiveYear : () => true;
-  const _resolveCT = typeof window._resolveCtName === 'function' ? window._resolveCtName : w => w.ct || '';
-
-  const fCt = document.getElementById('cc-hist-ct')?.value   || '';
-  const fWk = document.getElementById('cc-hist-week')?.value || '';
-  const fQ  = (document.getElementById('cc-hist-search')?.value || '').toLowerCase().trim();
-  const rows = [['CT','Từ','Đến','CN','T2','T3','T4','T5','T6','T7','TC','Lương/Ngày TB','Tổng Lương','Phụ Cấp','HĐ Mua Lẻ','Nội Dung','Tổng Cộng']];
-  const map  = {};
-
-  ccData.forEach(w => {
-    if (w.deletedAt) return;
-    if (!inActiveYearFn(w.fromDate)) return;
-    if (fCt && !(w.projectId === fCt || w.ctPid === fCt || w.ct === fCt)) return;
-    if (fWk && w.fromDate !== fWk) return;
-    const ctDisplay = _resolveCT(w);
-    const key = w.fromDate + '|' + (w.projectId || w.ct);
-    if (!map[key]) map[key] = { fromDate: w.fromDate, toDate: w.toDate, ct: ctDisplay,
-      d: [0,0,0,0,0,0,0], tc: 0, tl: 0, pc: 0, hd: 0, luongList: [], names: [], ndList: [] };
-    (w.workers || []).forEach(wk => {
-      const tc    = round1((wk.d || []).reduce((s, v) => s + v, 0));
-      const luong = Number(wk.luong) || 0;
-      (wk.d || []).forEach((v, i) => { map[key].d[i] += Number(v) || 0; });
-      map[key].tc += tc; map[key].tl += tc * luong;
-      map[key].pc += (wk.phucap || 0); map[key].hd += (wk.hdmuale || 0);
-      if (luong > 0) map[key].luongList.push(luong);
-      if (wk.name) map[key].names.push(wk.name);
-      if (wk.nd)   map[key].ndList.push(wk.nd);
-    });
-  });
-  Object.values(map).forEach(r => { r.tc = round1(r.tc); r.d = r.d.map(v => round1(v)); });
-
-  Object.values(map)
-    .map(r => {
-      const avgLuong = r.luongList.length ? Math.round(r.luongList.reduce((s, v) => s + v, 0) / r.luongList.length) : 0;
-      const workers  = [...new Set(r.names.map(v => (v || '').trim()).filter(Boolean))];
-      const nd       = [...new Set(r.ndList.map(v => (v || '').trim()).filter(Boolean))].join(' | ');
-      return { ...r, avgLuong, workers, nd, tong: r.tl + r.pc + r.hd };
-    })
-    .filter(r => !fQ || (r.ct || '').toLowerCase().includes(fQ) || r.workers.some(n => n.toLowerCase().includes(fQ)))
-    .sort((a, b) => b.fromDate.localeCompare(a.fromDate) || (a.ct || '').localeCompare(b.ct || '', 'vi'))
-    .forEach(r => {
-      rows.push([r.ct, viShort(r.fromDate) + '–' + viShort(r.toDate), r.toDate, ...r.d, r.tc, r.avgLuong, r.tl, r.pc, r.hd, r.nd, r.tong]);
-    });
-
-  const label = fWk ? viShort(fWk) : 'all';
-  _dlCSV(rows, 'lich_su_cham_cong_' + label + '_' + _today() + '.csv');
-}
 
 // ══════════════════════════════════════════════════════════════
 //  PHIẾU LƯƠNG — html2canvas
@@ -1258,7 +1130,6 @@ window._payrollUI = {
   copyCCWeek, pasteCCWeek,
   renderCCHistory, ccHistGoTo, loadCCWeekById,
   renderCCTLT, ccTltGoTo,
-  exportCCWeekCSV, exportCCTLTCSV, exportCCHistCSV,
   xuatPhieuLuong,
 };
 
@@ -1281,9 +1152,6 @@ window.renderCCTLT        = renderCCTLT;
 window.ccHistGoTo         = ccHistGoTo;
 window.ccTltGoTo          = ccTltGoTo;
 window.loadCCWeekById     = loadCCWeekById;
-window.exportCCWeekCSV    = exportCCWeekCSV;
-window.exportCCTLTCSV     = exportCCTLTCSV;
-window.exportCCHistCSV    = exportCCHistCSV;
 window.xuatPhieuLuong     = xuatPhieuLuong;
 
 // rebuildCCNameList: wrapper tương thích (gọi không tham số như legacy)

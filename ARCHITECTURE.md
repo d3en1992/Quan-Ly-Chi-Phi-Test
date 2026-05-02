@@ -1,21 +1,27 @@
 # 🏗️ Antigravity - System Architecture & AI Developer Guide
 
-*Tài liệu này được thiết kế dành riêng cho các AI Coding Assistants (Claude, Cursor, Copilot, v.v.) và Lập trình viên để hiểu rõ kiến trúc, luồng dữ liệu và quy định code của dự án Antigravity sau khi nâng cấp lên ES Modules.*
+*Tài liệu này được thiết kế dành riêng cho các AI Coding Assistants (Claude, Cursor, Copilot, v.v.) và Lập trình viên để hiểu rõ kiến trúc, luồng dữ liệu và quy định code của dự án Antigravity sau khi hoàn tất 100% việc chuyển đổi sang ES Modules (ESM).*
 
 ---
 
 ## 1. Tổng quan Kiến trúc (Architecture Overview)
 
-Dự án sử dụng **Kiến trúc 3 lớp (3-Tier Architecture)** viết bằng **Vanilla JavaScript (ES Modules)**. Mọi thứ được gói gọn trong thư mục `src/`, loại bỏ hoàn toàn các script spaghetti cũ và các biến global (`window.data`).
+Dự án sử dụng **Kiến trúc 3 lớp (3-Tier Architecture)** viết bằng **Vanilla JavaScript (ES Modules)**. Mọi thứ được gói gọn trong thư mục `src/`. Tất cả các file script nguyên khối (Monolithic) cũ (như `core.js`, `main.js`, `hoadon.js`...) đã được loại bỏ hoàn toàn khỏi `index.html`. Không còn tồn tại biến global không kiểm soát.
 
 ### 📂 Cấu trúc thư mục
 
 ```text
 Antigravity/
 ├── index.html              # File entry duy nhất, chứa layout cơ bản.
-├── style.css               # File style tổng.
 └── src/
-    ├── app.js              # Entry point của ES Modules (nơi import tất cả).
+    ├── app.js              # Entry point của ES Modules (nơi import và khởi chạy toàn bộ ứng dụng).
+    │
+    ├── styles/             # (Layer 0) - Hệ thống giao diện CSS Modular
+    │   ├── main.css        # File CSS gốc, chứa @import các file khác.
+    │   ├── base.css        # CSS Reset, biến CSS (:root).
+    │   ├── layout.css      # Topbar, Nav, cấu trúc khung trang.
+    │   ├── components.css  # Buttons, modals, toasts, dropdowns.
+    │   └── *.css           # Các CSS riêng cho từng module (auth, dashboard, invoices...).
     │
     ├── utils/              # (Layer 1) - Helpers độc lập, không chứa logic nghiệp vụ
     │   ├── date.util.js    # Tiện ích thời gian (ngày, tháng, ISO).
@@ -28,20 +34,28 @@ Antigravity/
     │   ├── db.js           # Giao tiếp IndexedDB (load/save/delete).
     │   ├── schema.js       # [QUAN TRỌNG] Schema Validator. Mọi data trước khi lưu phải qua đây.
     │   ├── store.js        # Centralized State Management (Pub/Sub pattern).
+    │   ├── sync.js         # Đồng bộ dữ liệu Firebase (Push/Pull, Queue).
     │   └── migrate.js      # Logic nâng cấp, dọn dẹp dữ liệu cũ (Idempotent).
     │
     ├── services/           # (Layer 3) - Logic nghiệp vụ dùng chung (Shared Business Logic)
     │   ├── category.svc.js # Quản lý danh mục (Soft-delete, đồng bộ tên).
-    │   ├── excel.svc.js    # Logic Import/Export Excel.
+    │   ├── excel.svc.js    # Logic Import/Export toàn bộ file Excel.
     │   └── project.svc.js  # Nghiệp vụ công trình, tính KPI, phân bổ chi phí.
     │
-    └── modules/            # (Layer 4) - Các phân hệ tính năng độc lập
-        ├── projects/       # Module Quản lý Công trình
-        ├── invoices/       # Module Hóa đơn chi phí
-        ├── payroll/        # Module Chấm công & Lương
-        ├── revenue/        # Module Hợp đồng & Doanh thu
-        ├── advances/       # Module Tiền ứng
-        └── equipment/      # Module Thiết bị máy móc
+    └── modules/            # (Layer 4) - Các phân hệ tính năng độc lập (Logic & UI)
+        ├── admin/          # Công cụ kiểm tra sức khỏe dữ liệu (Data Health), nâng cấp Schema.
+        ├── advances/       # Module Tiền ứng.
+        ├── auth/           # Phân quyền người dùng, quản lý Role.
+        ├── backup/         # Quản lý sao lưu JSON và khôi phục.
+        ├── cloud/          # UI tương tác với Firebase.
+        ├── dashboard/      # Bảng tổng quan, biểu đồ KPI.
+        ├── equipment/      # Module Thiết bị máy móc, kho bãi.
+        ├── invoices/       # Module Hóa đơn chi phí (Nhập nhanh, Chi tiết).
+        ├── nav/            # Thanh điều hướng, bộ lọc theo năm (Year Filter).
+        ├── payroll/        # Module Chấm công, Tổng Lương Tuần, Xuất Phiếu Lương.
+        ├── projects/       # Module Quản lý Công trình.
+        ├── revenue/        # Module Hợp đồng, Doanh thu, Lãi lỗ, Công nợ.
+        └── settings/       # Thiết lập danh mục dùng chung.
 ```
 
 ---
@@ -50,13 +64,13 @@ Antigravity/
 
 **NẾU BẠN LÀ AI, HÃY ĐỌC KỸ PHẦN NÀY TRƯỚC KHI VIẾT CODE:**
 
-1. **NO GLOBAL VARIABLES**: Tuyệt đối không lưu trạng thái ứng dụng vào các biến toàn cục (ví dụ: `let inActiveYear = 2026`). Tất cả trạng thái đều phải được get/set qua `store.js`.
+1. **NO GLOBAL VARIABLES**: Tuyệt đối không lưu trạng thái ứng dụng vào các biến toàn cục trên `window`. Trạng thái toàn cục phải được quản lý qua các file module cụ thể. 
 2. **SEPARATION OF CONCERNS**:
-   * Các hàm thay đổi DOM, render HTML, gắn event listener **BẮT BUỘC** phải nằm trong file `*.ui.js`.
-   * Các hàm tính toán, lọc mảng, tính lương, tính thuế **BẮT BUỘC** phải là Pure Functions và nằm trong file `*.logic.js`. Tuyệt đối không dùng `document.getElementById` trong các file logic.
-3. **SCHEMA VALIDATION IS MANDATORY**: Bất cứ khi nào tạo mới hoặc cập nhật một Object (Hóa đơn, Công trình, Chấm công...), dữ liệu đó phải được chạy qua `schema.js` (`normalizeRecord`) trước khi gọi hàm save vào Database. Đảm bảo dữ liệu luôn có `id` (UUID) và `projectId`.
-4. **SOFT DELETE ONLY**: Không dùng hàm `array.splice()` để xóa dữ liệu. Thay vào đó, set field `deletedAt = Date.now()` (Soft Delete).
-5. **IDEMPOTENT MIGRATIONS**: Mọi hàm xử lý di chuyển hoặc sửa lỗi data cũ phải đảm bảo tính idempotent (chạy 1 lần hay 100 lần kết quả vẫn giống nhau, không sinh thêm rác).
+   * Các hàm thay đổi DOM, render HTML, gắn event listener **BẮT BUỘC** phải nằm trong file `*.ui.js` hoặc `*.module.js`.
+   * Các hàm tính toán, lọc mảng, logic phức tạp **BẮT BUỘC** phải là Pure Functions và nằm trong file `*.logic.js`. Tuyệt đối không dùng `document.getElementById` trong các file logic.
+3. **SCHEMA VALIDATION IS MANDATORY**: Bất cứ khi nào tạo mới hoặc cập nhật một Object (Hóa đơn, Công trình, Chấm công...), dữ liệu đó phải được chạy qua `schema.js` (`normalizeRecord`) trước khi gọi hàm save vào Database.
+4. **SOFT DELETE ONLY**: Không dùng hàm `array.splice()` để xóa vĩnh viễn dữ liệu. Thay vào đó, thiết lập trường `deletedAt = Date.now()` (Soft Delete).
+5. **DOM EVENT BINDING**: Thay vì ghi đè hàm lên `window.xxx` để phục vụ `onclick` trong HTML, hãy ưu tiên sử dụng Event Delegation trong file JS ở các tính năng mới. 
 
 ---
 
@@ -64,41 +78,36 @@ Antigravity/
 
 | Yêu cầu của User | Nơi AI cần tìm và sửa |
 | :--- | :--- |
-| *"Sửa lỗi giao diện hiển thị xấu trên điện thoại"* | Thư mục `style.css` (tìm các khối `@media` queries). |
-| *"Thêm màu sắc, chỉnh cỡ chữ, khoảng cách"* | Thư mục `style.css` (tuyệt đối hạn chế inline-style trong JS). |
-| *"Đổi màu nút lưu, thêm cột mới vào bảng chấm công"* | Thư mục `src/modules/payroll/payroll.ui.js` (chứa mã tạo HTML động). |
+| *"Sửa lỗi giao diện hiển thị xấu trên điện thoại"* | Thư mục `src/styles/` (tìm các file css tương ứng như `layout.css`, `components.css` v.v). |
+| *"Đổi màu nút lưu, thêm cột mới vào bảng chấm công"* | Thư mục `src/modules/payroll/payroll.ui.js` (chứa HTML string builder) và `src/styles/payroll.css`. |
 | *"Sửa lại công thức tính phụ cấp lương"* | Thư mục `src/modules/payroll/payroll.logic.js` |
-| *"Thêm trường 'Ghi chú' vào form Hóa đơn"* | 1. Thêm validation ở `src/core/schema.js`<br>2. Sửa HTML form ở `src/modules/invoices/invoice.ui.js` |
 | *"Sửa lỗi export Excel bị mất cột"* | Thư mục `src/services/excel.svc.js` |
-| *"Sửa lỗi không lưu được dữ liệu xuống bộ nhớ"* | Thư mục `src/core/db.js` |
+| *"Thay đổi cách lọc dữ liệu hóa đơn theo năm"* | Thư mục `src/modules/nav/nav.ui.js` (logic chuyển năm) và `src/modules/invoices/invoice.logic.js`. |
+| *"Sửa lỗi không lưu được dữ liệu xuống Firebase"* | Thư mục `src/core/sync.js` |
+| *"Kiểm tra dữ liệu bị lỗi, thừa ID"* | Thư mục `src/modules/admin/admin.module.js` (Sử dụng Data Health Tool). |
 
 ---
 
 ## 4. Quy trình chuẩn để tạo một tính năng mới (SOP for New Features)
 
-Khi User yêu cầu tạo một module hoàn toàn mới (Ví dụ: **Module Quản lý Nghỉ Phép**), AI phải tuân thủ chính xác 4 bước sau:
+Khi User yêu cầu tạo một module hoàn toàn mới, AI phải tuân thủ chính xác 4 bước sau:
 
 **Bước 1: Khai báo cấu trúc dữ liệu (Data Layer)**
 * Mở `src/core/schema.js`.
-* Định nghĩa khung chuẩn (schema) cho Nghỉ Phép (ví dụ: cần có `id`, `workerId`, `fromDate`, `toDate`, `reason`).
-* Đăng ký key IndexedDB mới (nếu cần) trong `src/core/config.js`.
+* Định nghĩa khung chuẩn (schema) cho Object mới (đảm bảo luôn có `id`, `projectId`, `createdAt`, `updatedAt`).
+* Đăng ký store IndexedDB mới (nếu cần) trong `src/core/config.js` và cập nhật migrate.js nếu cần thiết.
 
 **Bước 2: Viết Logic (Business Layer)**
-* Tạo thư mục `src/modules/leave/`.
-* Tạo file `leave.logic.js`.
-* Viết các hàm pure function tính toán số ngày nghỉ, kiểm tra ngày trùng lặp, logic duyệt/từ chối. 
-* *Lưu ý:* Không import bất kỳ thứ gì liên quan đến DOM vào đây.
+* Tạo thư mục `src/modules/<tên_module>/`.
+* Tạo file `<tên_module>.logic.js`.
+* Viết các pure function để xử lý dữ liệu. Tuyệt đối không thao tác DOM.
 
-**Bước 3: Viết Giao diện (UI Layer)**
-* Tạo file `leave.ui.js`.
-* Viết hàm `renderLeaveTable()`, `openLeaveForm()`.
-* Bắt sự kiện click button, lấy dữ liệu từ `input` -> gọi hàm logic ở Bước 2 -> gọi hàm `save()` để lưu vào IndexedDB.
+**Bước 3: Viết Giao diện (UI Layer & Style)**
+* Tạo file `<tên_module>.ui.js`.
+* Viết hàm `renderTable()`, `openForm()`. Lấy dữ liệu từ thẻ input, chạy qua logic layer rồi gọi `dbSave()`.
+* Tạo file CSS tương ứng `src/styles/<tên_module>.css` và `import` nó vào `src/styles/main.css`.
 
 **Bước 4: Kích hoạt Module (Integration Layer)**
 * Mở `src/app.js`.
-* Thêm import cho module mới:
-  ```javascript
-  import './modules/leave/leave.logic.js';
-  import './modules/leave/leave.ui.js';
-  ```
+* Thêm lệnh `import` cho UI module mới và gọi hàm khởi tạo bên trong `bootstrap()` (ví dụ: `init<TênModule>UI()`).
 * Báo cáo hoàn thành với User.

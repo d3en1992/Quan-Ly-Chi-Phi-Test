@@ -266,7 +266,28 @@ export function refreshEntryDropdowns() {
         _dd(cats.nhaCungCap || []).map(c => `<option value="${_x(c)}" ${c === v ? 'selected' : ''}>${_x(c)}</option>`).join('');
     }
   });
-  if (typeof window._initDetailFormSelects === 'function') window._initDetailFormSelects();
+
+  // Nạp trực tiếp cho các select trong form chi tiết
+  const detLoai  = document.getElementById('detail-loai');
+  const detCt    = document.getElementById('detail-ct');
+  const detNcc   = document.getElementById('detail-ncc');
+  const detNguoi = document.getElementById('detail-nguoi');
+  if (detLoai) {
+    const v = detLoai.value;
+    detLoai.innerHTML = '<option value="">-- Chọn --</option>' +
+      _dd(cats.loaiChiPhi || []).map(c => `<option value="${_x(c)}" ${c === v ? 'selected' : ''}>${_x(c)}</option>`).join('');
+  }
+  if (detCt) { detCt.innerHTML = _bpo(detCt.value, '-- Chọn Công Trình --'); }
+  if (detNcc) {
+    const v = detNcc.value;
+    detNcc.innerHTML = '<option value="">-- Chọn --</option>' +
+      _dd(cats.nhaCungCap || []).map(c => `<option value="${_x(c)}" ${c === v ? 'selected' : ''}>${_x(c)}</option>`).join('');
+  }
+  if (detNguoi) {
+    const v = detNguoi.value;
+    detNguoi.innerHTML = '<option value="">-- Chọn --</option>' +
+      _dd(cats.nguoiTH || []).map(c => `<option value="${_x(c)}" ${c === v ? 'selected' : ''}>${_x(c)}</option>`).join('');
+  }
 }
 
 // Rebuild CT dropdowns only (called after project changes)

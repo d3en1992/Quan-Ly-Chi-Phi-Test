@@ -810,25 +810,8 @@ function openDeleteModal() {
 //  INIT
 // ══════════════════════════════════════════════════════════════
 export function initAdmin() {
-  // Data Health
-  window.toolDataHealth    = toolDataHealth;
-  window._dhRunScan        = _dhRunScan;
-  window._dhRenderReport   = _dhRenderReport;
-  window._dhRunFix         = _dhRunFix;
-  window.scanDataIssues    = scanDataIssues;
-  window.fixDataIssues     = fixDataIssues;
-
-  // Schema Migration
-  window.toolUpgradeSchema      = toolUpgradeSchema;
-  window._migDryRun             = _migDryRun;
-  window._migRenderDry          = _migRenderDry;
-  window._migCommit             = _migCommit;
-  window.dryRunMigration        = dryRunMigration;
-  window.normalizeProjectLinks  = normalizeProjectLinks;
-  window.migrateIdsToUUID       = migrateIdsToUUID;
-
   // Misc
   window.openDeleteModal   = openDeleteModal;
 
-  console.log('[admin.module] ✅ Module ready — 14 window bridges active');
+  console.log('[admin.module] ✅ Module ready');
 }

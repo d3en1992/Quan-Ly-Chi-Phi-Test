@@ -513,28 +513,6 @@ function rebuildUngSelects() {
   });
 }
 
-function exportUngEntryCSV() {
-  const rows = [['Thầu Phụ / Nhà CC', 'Công Trình', 'Số Tiền Ứng', 'Nội Dung']];
-  document.querySelectorAll('#ung-tbody tr').forEach(tr => {
-    const tp = tr.querySelector('[data-f="tp"]')?.value || '';
-    if (!tp) return;
-    rows.push([
-      tp,
-      tr.querySelector('[data-f="ct"]')?.value || '',
-      parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw || '0', 10) || 0,
-      tr.querySelector('[data-f="nd"]')?.value || ''
-    ]);
-  });
-  if (typeof window.dlCSV === 'function') window.dlCSV(rows, 'nhap_tien_ung_' + today() + '.csv');
-}
-
-function exportUngAllCSV() {
-  const src = filteredUng.length > 0 ? filteredUng : (window.ungRecords || []);
-  const rows = [['Ngày', 'Thầu Phụ / Nhà CC', 'Công Trình', 'Nội Dung', 'Số Tiền Ứng']];
-  src.forEach(r => rows.push([r.ngay, r.tp, r.congtrinh || '', r.nd || '', r.tien]));
-  if (typeof window.dlCSV === 'function') window.dlCSV(rows, 'tien_ung_' + today() + '.csv');
-}
-
 // ══════════════════════════════════════════════════════════════
 // INIT ADVANCE UI — expose window bridges
 // ══════════════════════════════════════════════════════════════
@@ -560,8 +538,6 @@ export function initAdvanceUI() {
   window.goUngTpTo          = goUngTpTo;
   window.delUngRecord       = delUngRecord;
   window.rebuildUngSelects  = rebuildUngSelects;
-  window.exportUngEntryCSV  = exportUngEntryCSV;
-  window.exportUngAllCSV    = exportUngAllCSV;
 }
 
 // ── Bridge tạm ──────────────────────────────────────────────
