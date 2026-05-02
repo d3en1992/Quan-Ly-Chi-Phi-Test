@@ -17,7 +17,7 @@ export function snapshotNow(tag) {
     ];
     const snapshot = {};
     keys.forEach(k => {
-      const val = typeof load === 'function' ? load(k, null) : null;
+      const val = typeof window.load === 'function' ? window.load(k, null) : null;
       if (val !== null) snapshot[k] = val;
     });
     const entry = {
@@ -70,7 +70,7 @@ export function exportJSONData() {
   ];
   const out = { version: 2, exportedAt: Date.now(), data: {} };
   keys.forEach(k => {
-    const val = typeof load === 'function' ? load(k, null) : null;
+    const val = typeof window.load === 'function' ? window.load(k, null) : null;
     if (val !== null) out.data[k] = val;
   });
   return out;
@@ -109,11 +109,11 @@ export async function applyImportData(importedData) {
   const { data } = importedData;
   let count = 0;
   for (const [k, v] of Object.entries(data)) {
-    if (typeof _memSet === 'function') {
-      _memSet(k, v);
+    if (typeof window._memSet === 'function') {
+      window._memSet(k, v);
       count++;
-    } else if (typeof save === 'function') {
-      save(k, v);
+    } else if (typeof window.save === 'function') {
+      window.save(k, v);
       count++;
     }
   }

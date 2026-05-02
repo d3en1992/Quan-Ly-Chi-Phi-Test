@@ -946,6 +946,167 @@ function closeModal() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// DATA OPERATIONS — Xóa năm + Reset toàn bộ
+// Port từ datatools.js (_doDeleteYear, _doResetAll)
+// ══════════════════════════════════════════════════════════════
+
+function _saveCatKeyLocal(catsKey, lsKey, arr) {
+  if (window.cats) window.cats[catsKey] = arr;
+  if (typeof window._memSet === 'function') window._memSet(lsKey, arr);
+  else if (typeof window._dbSave === 'function') window._dbSave(lsKey, arr).catch(() => {});
+}
+
+export async function _doDeleteYear(yr) {
+  if (typeof window.showSyncBanner === 'function') window.showSyncBanner('⏳ Đang xóa dữ liệu năm ' + yr + '...');
+  try {
+    if (typeof window._snapshotNow === 'function') window._snapshotNow('pre-delete-' + yr);
+    const now = Date.now(), devId = window.DEVICE_ID || '';
+    const softDel = r => ({ ...r, deletedAt: now, updatedAt: now, deviceId: devId });
+    const matchYr = (r, field) => !r.deletedAt && r[field] && String(r[field]).startsWith(yr);
+
+    let invoices         = (window.invoices         || []).map(r => matchYr(r,'ngay')     ? softDel(r) : r);
+    let ungRecords       = (window.ungRecords       || []).map(r => matchYr(r,'ngay')     ? softDel(r) : r);
+    let ccData           = (window.ccData           || []).map(r => matchYr(r,'fromDate') ? softDel(r) : r);
+    let thuRecords       = (window.thuRecords       || []).map(r => matchYr(r,'ngay')     ? softDel(r) : r);
+    let thauPhuContracts = (window.thauPhuContracts || []).map(r => matchYr(r,'ngay')     ? softDel(r) : r);
+    let tbData           = window.tbData            || [];
+    const hopDongData    = { ...(window.hopDongData || {}) };
+    Object.keys(hopDongData).forEach(ct => {
+      const hd = hopDongData[ct];
+      if (hd && !hd.deletedAt && hd.ngay && String(hd.ngay).startsWith(yr)) hopDongData[ct] = softDel(hd);
+    });
+
+    const _activeCTs = arr => arr.filter(r => !r.deletedAt).map(r => r.congtrinh).filter(Boolean);
+    const usedCT = new Set([
+      ..._activeCTs(invoices), ..._activeCTs(ungRecords), ..._activeCTs(ccData),
+      ..._activeCTs(thuRecords), ..._activeCTs(thauPhuContracts),
+      ...Object.keys(hopDongData).filter(ct => !(hopDongData[ct]||{}).deletedAt),
+    ]);
+
+    let movedEq = 0;
+    tbData = tbData.map(r => {
+      if (!r.deletedAt && r.ct && !usedCT.has(r.ct)) { movedEq++; return { ...r, ct:'KHO TỔNG', projectId:null, updatedAt:now, deviceId:devId }; }
+      return r;
+    });
+
+    const _prune  = (arr, usedSet) => (arr||[]).filter(v => usedSet.has(v));
+    const _catArr = key => (window.cats ? (window.cats[key]||[]) : []);
+    if (typeof window.rebuildCatCTFromProjects === 'function') window.rebuildCatCTFromProjects();
+    const usedNCC   = new Set(invoices.filter(r=>!r.deletedAt).map(r=>r.ncc).filter(Boolean));
+    const usedNguoi = new Set(invoices.filter(r=>!r.deletedAt).map(r=>r.nguoi).filter(Boolean));
+    const usedTP    = new Set([...ungRecords.filter(r=>!r.deletedAt&&r.loai==='thauphu').map(r=>r.tp),...thauPhuContracts.filter(r=>!r.deletedAt).map(r=>r.thauphu)].filter(Boolean));
+    const usedCN    = new Set(ungRecords.filter(r=>!r.deletedAt&&r.loai==='congnhan').map(r=>r.tp).filter(Boolean));
+    const usedTbTen = new Set(tbData.filter(r=>!r.deletedAt).map(r=>r.ten).filter(Boolean));
+    _saveCatKeyLocal('nhaCungCap','cat_ncc',  _prune(_catArr('nhaCungCap'),usedNCC));
+    _saveCatKeyLocal('nguoiTH',   'cat_nguoi',_prune(_catArr('nguoiTH'),   usedNguoi));
+    _saveCatKeyLocal('thauPhu',   'cat_tp',   _prune(_catArr('thauPhu'),   usedTP));
+    _saveCatKeyLocal('congNhan',  'cat_cn',   _prune(_catArr('congNhan'),  usedCN));
+    _saveCatKeyLocal('tbTen',     'cat_tbteb',_prune(_catArr('tbTen'),     usedTbTen));
+
+    window.invoices=invoices; window.ungRecords=ungRecords; window.ccData=ccData;
+    window.thuRecords=thuRecords; window.thauPhuContracts=thauPhuContracts;
+    window.tbData=tbData; window.hopDongData=hopDongData;
+
+    if (typeof window.save === 'function') {
+      if (typeof window.clearInvoiceCache==='function') window.clearInvoiceCache();
+      window.save('inv_v3',invoices); window.save('ung_v1',ungRecords);
+      window.save('cc_v2',ccData);    window.save('thu_v1',thuRecords);
+      window.save('thauphu_v1',thauPhuContracts); window.save('tb_v1',tbData);
+    }
+    if (typeof window._memSet==='function') window._memSet('hopdong_v1',hopDongData);
+    if (typeof window.hideSyncBanner==='function') window.hideSyncBanner();
+    const eqMsg = movedEq ? ` · ${movedEq} thiết bị → KHO TỔNG` : '';
+    if (typeof window.toast==='function') window.toast(`✅ Đã xóa dữ liệu năm ${yr}${eqMsg}`,'success');
+    if (typeof window._refreshAllTabs==='function') window._refreshAllTabs();
+    else if (typeof window.renderActiveTab==='function') window.renderActiveTab();
+  } catch(e) {
+    if (typeof window.hideSyncBanner==='function') window.hideSyncBanner();
+    console.error('[DeleteYear] Lỗi:',e);
+    if (typeof window.toast==='function') window.toast('❌ Lỗi khi xóa dữ liệu: '+(e.message||String(e)),'error');
+  }
+}
+
+export async function _doResetAll() {
+  if (typeof window.showSyncBanner==='function') window.showSyncBanner('⏳ Đang reset toàn bộ dữ liệu...');
+  try {
+    if (typeof window._snapshotNow==='function') window._snapshotNow('pre-reset-all');
+    const yearsToWipe = typeof window._getAllLocalYears==='function' ? window._getAllLocalYears() : [String(new Date().getFullYear())];
+    const now=Date.now(), devId=window.DEVICE_ID||'';
+    const wLoad=(k,d)=>typeof window.load==='function'?window.load(k,d):d;
+    const _softDelArr = key => wLoad(key,[]).map(r=>r.deletedAt?r:{...r,deletedAt:now,updatedAt:now,deviceId:devId});
+    const _mem = window._mem;
+
+    if (_mem) {
+      ['inv_v3','ung_v1','cc_v2','tb_v1','thu_v1','thauphu_v1'].forEach(k=>{_mem[k]=_softDelArr(k);});
+      const existHd=wLoad('hopdong_v1',{});
+      const softHd={};
+      Object.keys(existHd).forEach(ct=>{const hd=existHd[ct];softHd[ct]=(hd&&hd.deletedAt)?hd:{...(hd||{}),deletedAt:now,updatedAt:now,deviceId:devId};});
+      _mem['hopdong_v1']=softHd;
+      ['cat_ct','cat_loai','cat_ncc','cat_nguoi','cat_tp','cat_cn','cat_tbteb','projects_v1','thauphu_v1'].forEach(k=>{_mem[k]=[];});
+    }
+    if (window.cats){window.cats.congTrinh=[];window.cats.loaiChiPhi=[];window.cats.nhaCungCap=[];window.cats.nguoiTH=[];window.cats.thauPhu=[];window.cats.congNhan=[];if('tbTen'in window.cats)window.cats.tbTen=[];}
+    window.projects=[]; window.thauPhuContracts=[];
+
+    // Push soft-deleted lên Firebase TRƯỚC KHI clear local
+    if (typeof window.fbReady==='function'&&window.fbReady()&&typeof window.fsSet==='function'&&typeof window.fbYearPayload==='function') {
+      if (typeof window.showSyncBanner==='function') window.showSyncBanner('⏳ Đang xóa dữ liệu trên Cloud...');
+      try {
+        for (const yr of yearsToWipe) await window.fsSet(window.fbDocYear(parseInt(yr)),window.fbYearPayload(parseInt(yr)));
+        if (typeof window.fbCatsPayload==='function'&&typeof window.fbDocCats==='function'&&_mem) {
+          ['cat_ct','cat_loai','cat_ncc','cat_nguoi','cat_tp','cat_cn','cat_tbteb'].forEach(k=>{_mem[k]=[];});
+          _mem['projects_v1']=[]; _mem['thauphu_v1']=[]; _mem['hopdong_v1']={};
+          const _existCI=wLoad('cat_items_v1',{});
+          if (Object.keys(_existCI).length){const _sCI={};Object.entries(_existCI).forEach(([t,a])=>{_sCI[t]=(a||[]).map(item=>item.isDeleted?item:{...item,isDeleted:true,updatedAt:now});});_mem['cat_items_v1']=_sCI;}
+          else _mem['cat_items_v1']={};
+          await window.fsSet(window.fbDocCats(),window.fbCatsPayload());
+        }
+      } catch(e){console.warn('[ResetAll] Firebase wipe lỗi:',e);}
+    }
+
+    // Chặn pull 5 phút
+    const _blockTs=Date.now()+5*60*1000;
+    if (typeof window.blockPullUntil==='function') window.blockPullUntil(_blockTs);
+    else localStorage.setItem('_blockPullUntil',String(_blockTs));
+
+    // Clear globals
+    window.invoices=[];window.ungRecords=[];window.ccData=[];window.tbData=[];
+    window.thuRecords=[];window.thauPhuContracts=[];window.hopDongData={};window.trash=[];window.projects=[];
+    if (window.cnRoles!==undefined) window.cnRoles={};
+    if (window.cats){window.cats.congTrinh=[];window.cats.nhaCungCap=[];window.cats.nguoiTH=[];window.cats.loaiChiPhi=[];window.cats.thauPhu=[];window.cats.congNhan=[];window.cats.congTrinhYears={};if('tbTen'in window.cats)window.cats.tbTen=[];}
+
+    // Clear _mem
+    if (_mem){
+      ['inv_v3','ung_v1','cc_v2','tb_v1','thu_v1','thauphu_v1','trash_v1','cat_ct','cat_loai','cat_ncc','cat_nguoi','cat_tp','cat_cn','cat_tbteb','projects_v1'].forEach(k=>{_mem[k]=[];});
+      _mem['hopdong_v1']={};_mem['cat_items_v1']={};
+    }
+    ['cat_ct_years','cat_cn_roles'].forEach(k=>{localStorage.removeItem(k);if(_mem)delete _mem[k];});
+
+    // Clear IDB
+    const db=window.db;
+    if (db){
+      try{await Promise.all([db.invoices?db.invoices.clear():Promise.resolve(),db.attendance?db.attendance.clear():Promise.resolve(),db.equipment?db.equipment.clear():Promise.resolve(),db.ung?db.ung.clear():Promise.resolve(),db.revenue?db.revenue.clear():Promise.resolve(),db.categories?db.categories.clear():Promise.resolve(),db.settings?db.settings.clear():Promise.resolve()]);}
+      catch(e){console.warn('[ResetAll] IDB clear lỗi:',e);}
+      if (typeof window._dbSave==='function'){
+        try{
+          await Promise.all(['cat_ct','cat_loai','cat_ncc','cat_nguoi','cat_tp','cat_cn','cat_tbteb','projects_v1'].map(k=>window._dbSave(k,[])));
+          await window._dbSave('hopdong_v1',{});await window._dbSave('cat_items_v1',{});
+        }catch(e){console.warn('[ResetAll] Ghi IDB rỗng lỗi:',e);}
+      }
+    }
+
+    if (typeof window.hideSyncBanner==='function') window.hideSyncBanner();
+    if (typeof window._resetPending==='function') window._resetPending();
+    if (typeof window.toast==='function') window.toast('✅ Đã reset toàn bộ dữ liệu','success');
+    if (typeof window._refreshAllTabs==='function') window._refreshAllTabs();
+    else if (typeof window.renderActiveTab==='function') window.renderActiveTab();
+  } catch(e) {
+    if (typeof window.hideSyncBanner==='function') window.hideSyncBanner();
+    console.error('[ResetAll] Lỗi:',e);
+    if (typeof window.toast==='function') window.toast('❌ Lỗi khi reset: '+(e.message||String(e)),'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // INIT SETTINGS — expose all window bridges
 // ══════════════════════════════════════════════════════════════
 
@@ -971,6 +1132,20 @@ export function initSettings() {
   window._dedupCatArr        = _dedupCatArr;
   window._migrateCatNamesFormat = _migrateCatNamesFormat;
   window.scanAndFixAllDataFormats = scanAndFixAllDataFormats;
+
+  // Alias bridges: category CRUD
+  window.saveCat       = (catId) => window.saveCats && window.saveCats(catId);
+  window.addCatItem    = addItem;
+  window.delCatItem    = delItem;
+  window.renameCatItem = renameCatItem;
+
+  // Alias bridges: advances (saveAllUngRows is in advance.ui.js — delegate via window)
+  window.saveUngRecord = () => window.saveAllUngRows && window.saveAllUngRows();
+  window.saveEditUng   = () => window.saveAllUngRows && window.saveAllUngRows();
+
+  // Data operation bridges (ported from datatools.js)
+  window._doDeleteYear = _doDeleteYear;
+  window._doResetAll   = _doResetAll;
 }
 
 // ── Bridge tạm ──────────────────────────────────────────────

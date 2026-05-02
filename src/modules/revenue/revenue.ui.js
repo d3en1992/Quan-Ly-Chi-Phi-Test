@@ -1480,6 +1480,12 @@ export function initRevenueUI() {
   window.renderHopDongList = renderHopDongList;
   window.delHopDong        = delHopDong;
 
+  // Alias bridges: saveEdit* → map to the corresponding save functions
+  // (edit mode submission re-uses the same save handler which detects _editing state)
+  window.saveEditHopDong  = saveHopDongChinh;
+  window.saveEditThauPhu  = saveHopDongThauPhu;
+  window.saveEditThu      = saveThuRecord;
+
   console.log('[revenue.ui] initRevenueUI ✅ — all window bridges active');
 }
 

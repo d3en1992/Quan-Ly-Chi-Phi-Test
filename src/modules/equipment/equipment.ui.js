@@ -863,6 +863,12 @@ export function initEquipmentUI() {
   window.tbRenderThongKeVon = tbRenderThongKeVon;
   window.filterKhoTable     = filterKhoTable;
 
+  // Alias bridges: legacy names used by index.html / other modules
+  window.saveTBRecord  = tbSave;
+  window.delTBRecord   = tbDeleteRow;
+  window.editTBRecord  = tbLuanChuyen;
+  window.saveEditTB    = tbSaveEdit;
+
   console.log('[equipment.ui] ✅ initEquipmentUI complete');
 }
 

@@ -20,10 +20,10 @@ export function handleExportJSON() {
     const dateStr  = new Date().toISOString().slice(0, 10);
     const filename = `qlct-backup-${dateStr}.json`;
     downloadJSON(payload, filename);
-    if (typeof toast === 'function') toast('✅ Đã xuất file JSON', 'success');
+    if (typeof window.toast === 'function') window.toast('✅ Đã xuất file JSON', 'success');
   } catch (e) {
     console.error('[Backup] Export lỗi:', e);
-    if (typeof toast === 'function') toast('❌ Lỗi xuất file: ' + (e.message || String(e)), 'error');
+    if (typeof window.toast === 'function') window.toast('❌ Lỗi xuất file: ' + (e.message || String(e)), 'error');
   }
 }
 
@@ -35,22 +35,22 @@ export async function handleImportJSON(file) {
     const parsed = JSON.parse(text);
     const check  = validateImportData(parsed);
     if (!check.valid) {
-      if (typeof toast === 'function') toast('❌ ' + check.error, 'error');
+      if (typeof window.toast === 'function') window.toast('❌ ' + check.error, 'error');
       return;
     }
     const result = await applyImportData(parsed);
     if (!result.ok) {
-      if (typeof toast === 'function') toast('❌ ' + (result.error || 'Lỗi nhập dữ liệu'), 'error');
+      if (typeof window.toast === 'function') window.toast('❌ ' + (result.error || 'Lỗi nhập dữ liệu'), 'error');
       return;
     }
-    if (typeof toast === 'function')
-      toast(`✅ Đã nhập ${result.count} key từ file JSON`, 'success');
+    if (typeof window.toast === 'function')
+      window.toast(`✅ Đã nhập ${result.count} key từ file JSON`, 'success');
     // Reload global state from _mem
-    if (typeof _reloadGlobals === 'function') _reloadGlobals();
-    if (typeof _refreshAllTabs === 'function') _refreshAllTabs();
+    if (typeof window._reloadGlobals === 'function') window._reloadGlobals();
+    if (typeof window._refreshAllTabs === 'function') window._refreshAllTabs();
   } catch (e) {
     console.error('[Backup] Import lỗi:', e);
-    if (typeof toast === 'function') toast('❌ Lỗi đọc file: ' + (e.message || String(e)), 'error');
+    if (typeof window.toast === 'function') window.toast('❌ Lỗi đọc file: ' + (e.message || String(e)), 'error');
   }
 }
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chi Phí Công Trình</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="src/styles/main.css">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1427,29 +1427,13 @@
 <div class="toast" id="toast"></div>
 
 <!-- ══════════════════════════════════════════════════════════
-     LEGACY SCRIPTS — Bootstrap chính của app
-     Thứ tự load bắt buộc: core → projects → tienich → ...→ main
-     main.js (last): gọi dbInit() rồi init() để render UI
+     RUNTIME DEPENDENCIES
      ══════════════════════════════════════════════════════════ -->
 <script src="https://unpkg.com/dexie@4/dist/dexie.min.js"></script>
-<script src="core.js"></script>
-<script src="projects.js"></script>
-<script src="tienich.js"></script>
-<script src="hoadon.js"></script>
-<script src="danhmuc.js"></script>
-<script src="nhapxuat.js"></script>
-<script src="datatools.js"></script>
-<script src="chamcong.js"></script>
-<script src="thietbi.js"></script>
-<script src="doanhthu.js"></script>
-<script src="sync.js"></script>
-<script src="main.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
-     ES MODULES ENTRY POINT — Pure logic layer (Giai đoạn 5)
-     Luôn deferred → chạy SAU tất cả legacy scripts ở trên.
-     Cung cấp: validators, builders, helpers, sync primitives.
-     main() chờ window._dataReady trước khi init module layer.
+     ES MODULES — Sole entry point (Prompt 19 migration complete)
+     All business logic lives in src/  — no legacy scripts remain.
      ══════════════════════════════════════════════════════════ -->
 <script type="module" src="src/app.js"></script>
 
