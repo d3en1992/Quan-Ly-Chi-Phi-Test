@@ -1,0 +1,10 @@
+# Ignore all markdown files
+*.md
+
+# Except README.md (if you decide to create one later)
+!README.md
+
+# Ignore local OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
