@@ -890,6 +890,34 @@ window.renderKhoTong, khoGoTo, tbRenderThongKeVon, filterKhoTable
 ## 📋 PROMPT 17 — Port `projects.js` + `datatools.js`
 
 **Mục tiêu**: Hấp thụ Projects UI + Admin tools. Sau prompt này, xóa 2 file.
+> **Trạng thái**: ✅ **HOÀN THÀNH**
+>
+> ### Scope A — `project.ui.js` (projects.js UI layer)
+> - Rewrote `src/modules/projects/project.ui.js` (~620 lines, từ stub 107 dòng)
+> - Ported toàn bộ: `_PT_STATUS_META`, `_PT_GROUP_LABELS`, module state (`_ctSearch`, `_ctFStatus`, `_ctFType`, `_ctFLaiLo`)
+> - Ported all render/modal functions: `renderProjectsPage`, `renderCTOverview`, `_ctApply`, `_ctRenderGrid`, `openCTDetail` (300-line HTML modal với financial summary), `openCTCreateModal`, `saveCTCreate`, `openCTEditModal`, `saveCTEdit`, `quickCloseCT`, `confirmQuickClose`, `quickCompleteCT`, `confirmQuickComplete`, `confirmDeleteCT`
+> - `initProjectUI()` registers 17 window bridges
+> - Exported helpers: `buildProjOpts`, `buildProjFilterOpts`, `readPidFromSel`, `checkProjectClosed`, `statusBadge`, `statBox`
+> - Soft-delete pattern: `deletedAt: Date.now()` — không hard-delete
+>
+> ### Scope B — `dashboard.module.js` (dashboard orchestration)
+> - Rewrote `src/modules/dashboard/dashboard.module.js` (~300 lines, kept existing HTML builders)
+> - Added `let selectedCT = ''` module state + `Object.defineProperty(window, 'selectedCT', {get, set})` để inline `onchange="selectedCT=this.value"` hoạt động
+> - Ported full orchestration: `renderDashboard`, `_dbPopulateCTFilter`, `_dbKPI`, `_dbBarChart`, `_dbPieChart`, `_dbTop5`, `_dbByCT`, `_dbUngByCT`, `_dbTBByCT`
+> - `initDashboard()` registers 9 window bridges + `selectedCT` property
+>
+> ### Scope C — `admin.module.js` (new file, extracted từ datatools.js)
+> - Created `src/modules/admin/admin.module.js` (~360 lines)
+> - Data Health tools: `scanDataIssues`, `fixDataIssues`, `toolDataHealth` UI modal (scan → report → fix workflow)
+> - Schema Migration tools: `dryRunMigration`, `normalizeProjectLinks`, `migrateIdsToUUID`, `toolUpgradeSchema` UI modal (dry-run → review → commit)
+> - `_readAllFromIDB()` bypasses `activeYear` filter, reads all 5 transactional IDB tables + trash + projects
+> - `_backupBeforeMigration()` auto-backups to localStorage trước mọi destructive operation
+> - `initAdmin()` registers 14 window bridges
+>
+> ### `src/app.js` updates
+> - Changed `import './modules/projects/project.ui.js'` → named import `{ initProjectUI }`
+> - Added `import { initAdmin } from './modules/admin/admin.module.js'`
+> - Added `initProjectUI()` và `initAdmin()` calls trong bootstrap sau `initEquipmentUI()`
 
 ```
 📎 Đính kèm: projects.js, datatools.js,
@@ -954,6 +982,69 @@ C. FINAL CLEANUP:
 
 ═══════════════════════════════════════════════════
 ```
+
+### ✅ HOÀN THÀNH — Prompt 18 (Scope A+B; Scope C: KHÔNG xóa)
+
+#### 1. File đã sửa
+| File | Thay đổi |
+|------|----------|
+| `src/core/sync.js` | Mở rộng: thay ~67 dòng stub → ~350 dòng full sync engine |
+| `src/services/excel.svc.js` | Viết lại hoàn toàn: ~40 dòng placeholder → ~550 dòng full port |
+
+#### 2. Symbol đã port theo nhóm
+
+**Sync Engine (`src/core/sync.js`)**
+- `isSyncing`, `enqueueChange`, `_clearQueue`, `cancelScheduledPush`
+- `_schedulePushFull` (30s debounce + pull-before-push)
+- `pushChanges` — full pull→merge→push cho tất cả năm
+- `pullChanges` — full cats + years merge, LWW + tombstone conflict
+- `startAutoSync` — 5-phút interval + visibilitychange
+- `manualSync` — pull → reload globals → push → refresh UI
+- `processQueue` (stub, placeholder)
+- `fbPushAll`, `gsLoadAll` — nâng cấp từ no-op stub → delegates thực
+
+**Excel Import (`src/services/excel.svc.js`)**
+- Helpers: `_normStr`, `_parseDate`, `_pNum`, `_str`, `_sheetRows`, `_isEmptyRow`, `_formatCatName`, `_markDuplicateInBatch`, `_deduplicateCatNames`, `_buildCanonMap`, `_dayOfWeek`
+- Catalog: `_makeCatLookup`, `_makeCatLookupWithExtra`, `_resolveProvisionalProjectIds`
+- 9 parsers: `parseSheet1`…`parseSheet9` (HĐ Nhanh, HĐ Chi Tiết, Chấm Công, Tiền Ứng, Thiết Bị, Danh Mục, HĐ Chính, Thu Tiền, HĐ Thầu Phụ)
+- Dup detectors: `_isDupInvQ`, `_isDupInvD`, `_isDupUng`, `_isDupThu`, `_isDupTb`, `_isDupTp`, `_isDupCC`
+- Import flow: `_detectSheetType`, `_importSession`, `_doImportParse`, `_markDuplicates`, `_showImportPreviewNew`, `_toggleAllImportSheets`, `_applyImport`, `_generateImportLog`
+- Entry points: `openImportModal`, `handleImportFile`, `toolImportExcel`
+
+**Excel Export (`src/services/excel.svc.js`)**
+- Sheet builders: `buildHoaDonNhanh`, `buildHoaDonChiTiet`, `buildChamCong`, `buildTienUng`, `buildThietBi`, `buildDanhMuc`, `buildHopDongChinh`, `buildThuTien`, `buildHopDongThauPhu`, `buildHuongDan`
+- Export flow: `_buildSheet`, `exportExcel`, `_doExport`, `exportEntryCSV`, `exportAllCSV`
+- Entry points: `openExportModal`, `toolExportExcel`
+
+#### 3. Bridge đã thêm
+
+**Sync (10 bridges):**
+`window.isSyncing`, `window.enqueueChange`, `window._clearQueue`, `window.cancelScheduledPush`, `window.pushChanges`, `window.pullChanges`, `window.startAutoSync`, `window.manualSync`, `window.processQueue`, `window.schedulePush` (override → `_schedulePushFull`)
+
+**Excel (25+ bridges):**
+`window.openImportModal`, `window.handleImportFile`, `window.toolImportExcel`, `window.openExportModal`, `window.toolExportExcel`, `window.exportExcel`, `window.exportEntryCSV`, `window.exportAllCSV`, `window._toggleAllImportSheets`, `window._applyImport`, `window._generateImportLog`, `window._showImportPreviewNew`, `window.parseSheet1`…`parseSheet9`, `window._importSession`, `window._doImportParse`, `window._makeCatLookup`
+
+#### 4. Symbol còn delegate legacy (qua `window.*` call-time)
+- `window.normalizeAllChamCong` — CC normalize sau import (vẫn do chamcong.js)
+- `window._reloadGlobals` — reload globals sau pull (vẫn do main.js)
+- `window.renderActiveTab`, `window.updateTop`, `window.rebuildEntrySelects`, `window.rebuildCCNameList`, `window.populateCCCtSel`, `window.rebuildCatCTFromProjects`, `window.initTable`, `window.initUngTable`, `window.initCC` — UI refresh sau sync (vẫn do main.js / module legacy)
+- `window.afterSync`, `window.afterDataChange` — post-sync hooks (auth.module.js, store.js)
+- `window.buildNDFromItems` — hoadon.js helper dùng trong parseSheet2
+
+#### 5. Script legacy còn giữ
+Tất cả 12 file legacy **vẫn còn nguyên** trong `index.html` và trên disk:
+`core.js`, `projects.js`, `tienich.js`, `hoadon.js`, `danhmuc.js`, `nhapxuat.js`, `datatools.js`, `chamcong.js`, `thietbi.js`, `doanhthu.js`, `sync.js`, `main.js`
+
+#### 6. Thin Bridge Stub
+**KHÔNG** tạo Thin Bridge Stub cho nhapxuat.js hoặc sync.js. Scope C (xóa legacy) bị loại bỏ hoàn toàn — cả 12 legacy file giữ nguyên để đảm bảo ổn định.
+
+#### 7. Rủi ro còn lại
+| Rủi ro | Mức |
+|--------|-----|
+| `_applyImport` có nhiều lệnh UI refresh gọi qua `window.*` — nếu legacy chưa load xong sẽ silent-skip | Trung bình |
+| `startAutoSync` gọi `pushChanges` → cần Firebase config sẵn trong localStorage; nếu chưa có sẽ no-op nhưng không lỗi | Thấp |
+| `window.normalizeAllChamCong` sau import vẫn phụ thuộc chamcong.js — nếu lệnh load order thay đổi có thể undefined | Thấp |
+| Dual sync (legacy sync.js + ESM sync.js) có thể chạy song song nếu cả `window.startAutoSync` (ESM) và legacy IIFE đều khởi động | Trung bình |
 
 ---
 

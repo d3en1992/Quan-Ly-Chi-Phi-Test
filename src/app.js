@@ -27,7 +27,8 @@ import './services/invoice-cache.svc.js';
 
 // ── Domain Modules ───────────────────────────────────────────
 import './modules/projects/project.logic.js';
-import './modules/projects/project.ui.js';
+import { initProjectUI }
+  from './modules/projects/project.ui.js';
 import './modules/cloud/cloud.ui.js';
 import './modules/cloud/backup.ui.js';
 import './modules/invoices/invoice.logic.js';
@@ -65,6 +66,8 @@ import { initBackupUI }
   from './modules/backup/backup.ui.js';
 import { initRevenueUI }
   from './modules/revenue/revenue.ui.js';
+import { initAdmin }
+  from './modules/admin/admin.module.js';
 
 // ══════════════════════════════════════════════════════════════
 // init() — Render UI after data is ready and auth passes
@@ -184,6 +187,8 @@ async function bootstrap() {
   initRevenueUI();
   initAdvanceUI();
   initEquipmentUI();
+  initProjectUI();
+  initAdmin();
   if (!window.toolDeleteYear) window.toolDeleteYear = toolDeleteYear;
   if (!window.toolResetAll)   window.toolResetAll   = toolResetAll;
 

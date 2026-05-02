@@ -1,8 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // src/modules/dashboard/dashboard.module.js — Dashboard Charts
-// Prompt 9 — ES Modules Refactor
-// Bốc từ datatools.js: renderDashboard, _dbKPI, _dbBarChart,
-// _dbPieChart, _dbTop5, _dbByCT, _dbUngByCT, _dbTBByCT
+// Prompt 9  — ES Modules Refactor (HTML builders)
+// Prompt 17 — Full port renderDashboard + orchestration layer
 // ══════════════════════════════════════════════════════════════
 
 import { escapeHtml } from '../../utils/string.util.js';
@@ -11,6 +10,9 @@ import { fmtM, fmtS } from '../../utils/math.util.js';
 const PIE_COLORS  = ['#f0b429','#1db954','#4a90d9','#e74c3c','#9b59b6','#e67e22','#aaa'];
 const KEY_TYPES   = ['Nhân Công','Vật Liệu XD','Thầu Phụ','Sắt Thép','Đổ Bê Tông'];
 const TB_KHO_TONG = 'KHO TỔNG';
+
+// ── Dashboard CT filter state ────────────────────────────────
+let selectedCT = '';
 
 // ── Build label năm filter ───────────────────────────────────
 export function buildYearLabel(activeYears) {
@@ -30,7 +32,9 @@ export function buildKpiHtml(data, yr) {
     data[0]
   );
   const ctSet = new Set(data.map(i =>
-    (typeof resolveProjectName === 'function' ? resolveProjectName(i) : i.congtrinh || i.ct)
+    (typeof window.resolveProjectName === 'function'
+      ? window.resolveProjectName(i)
+      : i.congtrinh || i.ct)
   ).filter(Boolean));
 
   return [
@@ -198,16 +202,17 @@ export function buildByCTHtml(data, resolveName) {
 }
 
 // ── Tiền Ứng theo CT (aggregate view) ────────────────────────
-export function buildUngByCTHtml(ungRecords, selectedCT, resolveName) {
+export function buildUngByCTHtml(ungRecords, selectedCTVal, resolveName) {
+  const inAY = window.inActiveYear;
   const filtered = ungRecords.filter(r =>
     !r.deletedAt &&
-    (typeof inActiveYear === 'function' ? inActiveYear(r.ngay) : true) &&
-    (!selectedCT || resolveName(r) === selectedCT)
+    (inAY ? inAY(r.ngay) : true) &&
+    (!selectedCTVal || resolveName(r) === selectedCTVal)
   );
 
   if (!filtered.length) return '<div class="db-empty">Chưa có tiền ứng</div>';
 
-  if (!selectedCT) {
+  if (!selectedCTVal) {
     const byCT = {};
     filtered.forEach(r => {
       const k = resolveName(r) || '(Không rõ)';
@@ -231,7 +236,6 @@ export function buildUngByCTHtml(ungRecords, selectedCT, resolveName) {
     }).join('');
   }
 
-  // Detail view: CT selected
   const rows = [...filtered]
     .sort((a, b) => b.ngay.localeCompare(a.ngay))
     .map(r => `<tr style="border-bottom:1px solid var(--line)">
@@ -264,13 +268,13 @@ export function buildUngByCTHtml(ungRecords, selectedCT, resolveName) {
 }
 
 // ── Thiết Bị theo CT ─────────────────────────────────────────
-export function buildTBByCTHtml(tbData, selectedCT, resolveName) {
+export function buildTBByCTHtml(tbData, selectedCTVal, resolveName) {
   const allTB = tbData.filter(t => !t.deletedAt && t.ct !== TB_KHO_TONG);
   const khoTB = tbData.filter(t => !t.deletedAt && t.ct === TB_KHO_TONG);
 
   if (!allTB.length && !khoTB.length) return '<div class="db-empty">Chưa có thiết bị</div>';
 
-  if (!selectedCT) {
+  if (!selectedCTVal) {
     const khoTotal = khoTB.reduce((s, t) => s + (t.soluong || 0), 0);
     const khoHd    = khoTB.filter(t => t.tinhtrang === 'Đang hoạt động').reduce((s, t) => s + (t.soluong || 0), 0);
     const khoLau   = khoTB.filter(t => t.tinhtrang === 'Cần bảo trì').reduce((s, t) => s + (t.soluong || 0), 0);
@@ -314,13 +318,12 @@ export function buildTBByCTHtml(tbData, selectedCT, resolveName) {
     return khoRow + (ctRows || '<div class="db-empty">Chưa có thiết bị tại công trình</div>');
   }
 
-  // Detail: CT selected
   const filtered = allTB
-    .filter(t => t.ct === selectedCT)
+    .filter(t => t.ct === selectedCTVal)
     .sort((a, b) => (a.ten || '').localeCompare(b.ten, 'vi'));
 
   if (!filtered.length)
-    return '<div class="db-empty">Chưa có thiết bị cho ' + escapeHtml(selectedCT) + '</div>';
+    return '<div class="db-empty">Chưa có thiết bị cho ' + escapeHtml(selectedCTVal) + '</div>';
 
   const rows = filtered.map(t => {
     const ttColor = t.tinhtrang === 'Đang hoạt động' ? 'var(--green)'
@@ -355,23 +358,152 @@ export function buildEmptyState(yrLabel) {
   return '<div class="db-empty">Chưa có dữ liệu cho ' + yrLabel + '</div>';
 }
 
-// ── Init Dashboard ───────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  ORCHESTRATION LAYER — Prompt 17
+//  Các hàm này ghi trực tiếp vào DOM (giống datatools.js gốc)
+// ══════════════════════════════════════════════════════════════
+
+function _resolveName(r) {
+  if (typeof window.resolveProjectName === 'function') return window.resolveProjectName(r);
+  return r.congtrinh || r.ct || '';
+}
+
+// ── Populate CT filter dropdown ──────────────────────────────
+function _dbPopulateCTFilter() {
+  const sel = document.getElementById('db-filter-ct');
+  if (!sel) return;
+  if (typeof window._buildProjFilterOpts === 'function') {
+    sel.innerHTML = window._buildProjFilterOpts(selectedCT, { includeCompany: false, placeholder: '-- Tất cả công trình --' });
+  }
+}
+
+// ── KPI Cards → #db-kpi-row ──────────────────────────────────
+function _dbKPI(data, yr) {
+  const el = document.getElementById('db-kpi-row');
+  if (!el) return;
+  el.innerHTML = buildKpiHtml(data, yr);
+}
+
+// ── Bar Chart → #db-bar-chart ────────────────────────────────
+function _dbBarChart(data) {
+  const el = document.getElementById('db-bar-chart');
+  if (!el) return;
+  const ay = (typeof window.activeYears !== 'undefined') ? window.activeYears : new Set();
+  el.innerHTML = buildBarChartHtml(data, ay);
+}
+
+// ── Pie Chart → #db-pie-chart ────────────────────────────────
+function _dbPieChart(data) {
+  const el = document.getElementById('db-pie-chart');
+  if (!el) return;
+  el.innerHTML = buildPieChartHtml(data);
+}
+
+// ── Top 5 → #db-top5 ────────────────────────────────────────
+function _dbTop5(data) {
+  const el = document.getElementById('db-top5');
+  if (!el) return;
+  el.innerHTML = buildTop5Html(data, _resolveName);
+}
+
+// ── Chi phí theo CT → #db-by-ct ─────────────────────────────
+function _dbByCT(data) {
+  const el = document.getElementById('db-by-ct');
+  if (!el) return;
+  el.innerHTML = buildByCTHtml(data, _resolveName);
+}
+
+// ── Tiền ứng theo CT → #db-ung-ct ───────────────────────────
+function _dbUngByCT() {
+  const wrap = document.getElementById('db-ung-ct');
+  if (!wrap) return;
+  const ungRecords = window.ungRecords || [];
+  wrap.innerHTML = buildUngByCTHtml(ungRecords, selectedCT, _resolveName);
+}
+
+// ── Thiết bị theo CT → #db-tb-ct ────────────────────────────
+function _dbTBByCT() {
+  const wrap = document.getElementById('db-tb-ct');
+  if (!wrap) return;
+  const tbData = window.tbData || [];
+  // buildTBByCTHtml sử dụng t.ct trực tiếp (không qua resolveProjectName)
+  // vì tbData dùng trường 'ct' thay vì 'congtrinh'
+  wrap.innerHTML = buildTBByCTHtml(tbData, selectedCT, r => r.ct || '');
+}
+
+// ── renderDashboard (orchestrator) ──────────────────────────
+function renderDashboard() {
+  const ay = (typeof window.activeYears !== 'undefined') ? window.activeYears : new Set();
+  const yr = ay.size === 0 ? 0 : (ay.size === 1 ? [...ay][0] : 0);
+  const yrLabel = ay.size === 0    ? 'Tất cả năm'
+                : ay.size === 1    ? `Năm ${[...ay][0]}`
+                : 'Năm ' + [...ay].sort((a,b)=>a-b).join(', ');
+
+  _dbPopulateCTFilter();
+
+  const getInvoicesCached = window.getInvoicesCached;
+  const inActiveYear      = window.inActiveYear;
+  if (!getInvoicesCached) return;
+
+  const dataYear   = getInvoicesCached().filter(i => inActiveYear ? inActiveYear(i.ngay) : true);
+  const dataDetail = getInvoicesCached().filter(i =>
+    (inActiveYear ? inActiveYear(i.ngay) : true) &&
+    (!selectedCT || _resolveName(i) === selectedCT)
+  );
+
+  if (!dataYear.length) {
+    ['db-kpi-row','db-bar-chart','db-pie-chart','db-top5','db-by-ct','db-ung-ct','db-tb-ct'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = buildEmptyState(yrLabel);
+    });
+    return;
+  }
+
+  _dbKPI(dataYear, yr || yrLabel);
+  _dbBarChart(dataYear);
+  _dbPieChart(dataYear);
+  _dbTop5(dataDetail);
+  _dbByCT(dataDetail);
+  _dbUngByCT();
+  _dbTBByCT();
+
+  if (typeof window.renderCtPage === 'function') window.renderCtPage();
+}
+
+// ── CT filter change handler (gọi từ HTML onchange) ─────────
+function _dbOnCTChange(val) {
+  selectedCT = val || '';
+  renderDashboard();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
 export function initDashboard() {
-  // Placeholder: wiring up renderDashboard from legacy will happen in Prompt 10
+  window.renderDashboard      = renderDashboard;
+  window._dbPopulateCTFilter  = _dbPopulateCTFilter;
+  window._dbKPI               = _dbKPI;
+  window._dbBarChart          = _dbBarChart;
+  window._dbPieChart          = _dbPieChart;
+  window._dbTop5              = _dbTop5;
+  window._dbByCT              = _dbByCT;
+  window._dbUngByCT           = _dbUngByCT;
+  window._dbTBByCT            = _dbTBByCT;
+  window._dbOnCTChange        = _dbOnCTChange;
+  // Getter/setter cho selectedCT (inline HTML cần đọc/ghi)
+  Object.defineProperty(window, 'selectedCT', {
+    get: () => selectedCT,
+    set: (v) => { selectedCT = v || ''; },
+    configurable: true,
+  });
+  console.log('[dashboard.module] ✅ Orchestration layer ready — 9 bridges active');
 }
 
 // ── Bridge tạm ──────────────────────────────────────────────
 window._dashboardModule = {
-  buildYearLabel,
-  buildKpiHtml,
-  buildBarChartHtml,
-  buildPieChartHtml,
-  buildTop5Html,
-  buildByCTHtml,
-  buildUngByCTHtml,
-  buildTBByCTHtml,
-  buildEmptyState,
-  initDashboard,
+  buildYearLabel, buildKpiHtml, buildBarChartHtml, buildPieChartHtml,
+  buildTop5Html, buildByCTHtml, buildUngByCTHtml, buildTBByCTHtml,
+  buildEmptyState, initDashboard, renderDashboard,
 };
 
 console.log('[dashboard.module] ES Module loaded ✅');
