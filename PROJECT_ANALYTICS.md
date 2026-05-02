@@ -1,4 +1,4 @@
-﻿# PROJECT_ANALYTICS.md
+# PROJECT_ANALYTICS.md
 > Cập nhật kiến trúc hệ thống theo source code hiện tại (Vanilla JS)  
 > Ngày cập nhật: 22/04/2026  
 > Tài liệu này thay thế bản cũ ngày 08/04.
@@ -483,7 +483,7 @@ Import là parser cột cố định, không đoán cột, có log bỏ qua dòn
 
 ---
 
-## 11) Delta so với tài liệu cũ (08/04)
+## 11) Delta so với tài liệu cũ (08/04) và Hiện tại
 
 - Có module mới `datatools.js` (trước đây chưa mô tả).
 - Dashboard runtime hiện có phần lớn logic ở `datatools.js`.
@@ -492,6 +492,12 @@ Import là parser cột cố định, không đoán cột, có log bỏ qua dòn
 - Auth/session đa vai trò tích hợp sâu ở `main.js`.
 - Đồng bộ cloud có thêm merge cho users/projects/hợp đồng/thầu phụ/category items.
 - Luồng reset/delete-year phức tạp hơn, cloud-aware tombstone.
+
+**[CẬP NHẬT MỚI NHẤT TỪ SOURCE CODE HIỆN TẠI]:**
+- **Tính năng Auto-backup ngầm:** Đã được thêm vào `init()` trong `main.js` (chạy mỗi 30 phút), cần lưu ý tách thành module `backup`.
+- **Cơ chế Session Heartbeat & Device ID:** Auth trong `main.js` nay đã sử dụng `getDeviceId()`, `_startSessionHeartbeat()` và `validateCurrentSession()` để kiểm soát timeout và đa thiết bị. Rất phức tạp.
+- **Dynamic UI Injection (Anti-pattern):** Trong `doanhthu.js`, hàm `_initDoanhThuAddons()` tự động chèn mã HTML bảng chi tiết "Khối lượng" vào DOM và gán trực tiếp các hàm xử lý sự kiện lên biến global `window` (`window.hdcCalcAuto`, `window.renderhdcChiTiet`). **LƯU Ý:** Khi chuyển sang ES Modules, tuyệt đối phải bóc tách những hàm `window.` này trả về scope cục bộ của module.
+- **ResizeObserver cho Topbar:** Có logic tự đo chiều cao Topbar dính trong `init()`.
 
 ---
 
@@ -527,3 +533,30 @@ Import là parser cột cố định, không đoán cột, có log bỏ qua dòn
 ## 14) Kết luận
 
 Hệ thống hiện tại đã phát triển thành kiến trúc offline-first nhiều module, có đồng bộ cloud theo năm, có auth-role và bộ công cụ dữ liệu mạnh hơn (đặc biệt `datatools.js`). Tuy nhiên độ kết dính global và drift schema đang là điểm nghẽn chính. Tài liệu này phản ánh hiện trạng để làm baseline cho refactor an toàn ở vòng tiếp theo.
+
+---
+
+## 15) Bản đồ Di chuyển (Migration Map) sang ES Modules
+
+Phần này dùng làm "Kim chỉ nam" cho Cursor/Claude trong quá trình chia tách mã nguồn cũ thành cấu trúc src/ mới. Rất nhiều file cũ chứa các logic "ẩn" không khớp với tên file. Cần lưu ý các điểm sau khi thực hiện prompt:
+
+### 15.1 Tầng Nền Tảng (Core & Services)
+*   **core.js cũ** -> Tách thành src/core/db.js (Dexie), src/core/store.js (State invoices, cats...) và src/core/config.js.
+*   **tienich.js cũ** -> Tách thành src/utils/math.util.js, date.util.js, dom.util.js. Chú ý: Hàm buildInvoices() bên trong file này chứa logic nghiệp vụ, phải dời sang src/modules/invoices/invoice.logic.js chứ không để ở utils.
+*   **nhapxuat.js cũ** -> Tách thành src/services/excel.svc.js (xuất nhập Excel). Các hàm parse nhỏ (như _pNum) phải dời vào utils/math.util.js.
+
+### 15.2 Giải phẫu các file "Nặng" (Domain Modules)
+*   **projects.js (File phức tạp nhất)**
+    - Nhiệm vụ 1 (Logic): Chuyển findProjectIdByName, allocateCompanyCost sang src/services/project.svc.js.
+    - Nhiệm vụ 2 (UI): Chuyển code vẽ UI Thẻ Công Trình sang src/modules/projects/project.ui.js.
+    - Nhiệm vụ 3 (Migration ẩn): Chuyển migrateProjectLinks() và deduplicateProjects() sang src/core/migrate.js.
+*   **danhmuc.js (Chứa 2 domain khác nhau)**
+    - Domain Cài đặt: Quản lý thêm/xóa danh mục thầu phụ, tên máy -> Chuyển sang src/modules/settings/.
+    - Domain Tiền ứng (ẨN): Quản lý chi/tạm ứng tiền (ungRecords) -> BẮT BUỘC tách thành src/modules/advances/advance.logic.js và advance.ui.js. Tuyệt đối không để chung với settings.
+*   **datatools.js (Chứa Dashboard và Destructive actions)**
+    - Domain Dashboard: Chuyển code vẽ biểu đồ sang src/modules/dashboard/.
+    - Domain Admin Tools: Chuyển chức năng Delete Year / Reset sang src/modules/settings/ hoặc core/store.js.
+*   **sync.js (Bị lẫn business logic)**
+    - Chứa logic normalizeCC (gộp chấm công). Phải dời logic này trả về src/modules/payroll/payroll.logic.js. Chỉ giữ lại logic thuần túy Push/Pull ở src/core/sync.js.
+*   **doanhthu.js, chamcong.js, hoadon.js, thietbi.js**
+    - Cứ mỗi file băm thành cặp .ui.js (Xử lý DOM, HTML string) và .logic.js (Tính toán, validate schema, lưu qua store.js).

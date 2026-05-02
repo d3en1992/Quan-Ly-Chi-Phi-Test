@@ -557,20 +557,20 @@ function parseSheet4(rows, lookup) {
 
     const dtNorm = _normStr(doiTuong);
     let loai = 'thauphu';
-    if (dtNorm.includes('cong nhan') || dtNorm.includes('congnhan')) {
-      loai = 'congnhan';
+    if (dtNorm.includes('nha cung cap') || dtNorm.includes('nhacungcap')) {
+      loai = 'nhacungcap';
     } else if (dtNorm.includes('thau phu') || dtNorm.includes('thauphu')) {
       loai = 'thauphu';
     } else if (doiTuong) {
-      rowErrs.push(_mkErr('TienUng', i+1, 'loai', doiTuong, 'Đối tượng phải là "Thầu phụ" hoặc "Công nhân"'));
+      rowErrs.push(_mkErr('TienUng', i+1, 'loai', doiTuong, 'Đối tượng phải là "Thầu phụ" hoặc "Nhà cung cấp"'));
     }
 
     if (!tenRaw) {
       rowErrs.push(_mkErr('TienUng', i+1, 'tp', '', 'Tên đối tượng không được để trống'));
     } else {
-      const catSet = loai === 'thauphu' ? lookup.tp : lookup.cn;
+      const catSet = loai === 'nhacungcap' ? lookup.ncc : lookup.tp;
+      const label  = loai === 'nhacungcap' ? 'Nhà cung cấp' : 'Thầu phụ';
       if (!catSet.has(_normStr(tenRaw))) {
-        const label = loai === 'thauphu' ? 'Thầu phụ' : 'Công nhân';
         rowErrs.push(_mkErr('TienUng', i+1, 'tp', tenRaw, `${label} không tồn tại trong danh mục`));
       }
     }
@@ -1670,7 +1670,7 @@ function buildHoaDonNhanh() {
     { label: 'ID',               w: 36 },
   ];
   const rows = invoices
-    .filter(i => !i.deletedAt && !i.ccKey)
+    .filter(i => !i.deletedAt && !i.ccKey && i.source !== 'detail' && !(Array.isArray(i.items) && i.items.length))
     .map(i => [
       i.ngay || '',
       i.congtrinh || '',
@@ -1691,30 +1691,38 @@ function buildHoaDonChiTiet() {
     { label: 'NGÀY',             w: 13 },
     { label: 'CÔNG TRÌNH',       w: 32 },
     { label: 'LOẠI CHI PHÍ',     w: 22 },
-    { label: 'NỘI DUNG',         w: 36 },
+    { label: 'NGƯỜI THỰC HIỆN',  w: 22 },
+    { label: 'NHÀ CUNG CẤP',     w: 24 },
+    { label: 'SỐ HĐ',            w: 16 },
+    { label: 'TÊN HÀNG HÓA',     w: 36 },
     { label: 'ĐVT',              w: 10 },
     { label: 'SỐ LƯỢNG',         w: 10, num: true },
     { label: 'ĐƠN GIÁ',          w: 14, num: true },
     { label: 'THÀNH TIỀN',       w: 15, num: true },
-    { label: 'NGƯỜI THỰC HIỆN',  w: 22 },
-    { label: 'NHÀ CUNG CẤP',     w: 24 },
+    { label: 'ID HÓA ĐƠN',       w: 36 },
   ];
   const rows = [];
   invoices
-    .filter(i => !i.deletedAt && i.ccKey && Array.isArray(i.items) && i.items.length)
+    .filter(i => !i.deletedAt && !i.ccKey && (i.source === 'detail' || (Array.isArray(i.items) && i.items.length)))
     .forEach(i => {
-      i.items.forEach(it => {
+      const itemList = Array.isArray(i.items) ? i.items : [];
+      itemList.forEach(it => {
+        const sl = it.sl != null ? it.sl : (it.soluong != null ? it.soluong : 1);
+        const dg = it.dongia || 0;
+        const tt = it.thanhtien != null ? it.thanhtien : (sl * dg) || 0;
         rows.push([
-          i.ngay || '',
-          i.congtrinh || '',
-          i.loai || '',
-          it.ten || '',
-          it.dvt || '',
-          it.soluong != null ? it.soluong : 1,
-          it.dongia || 0,
-          it.thanhtien || (it.soluong * it.dongia) || 0,
-          i.nguoi || '',
-          i.ncc || '',
+          i.ngay       || '',
+          resolveProjectName ? resolveProjectName(i) : (i.congtrinh || ''),
+          i.loai       || '',
+          i.nguoi      || '',
+          i.ncc        || '',
+          i.soHD       || '',
+          it.ten       || '',
+          it.dv        || it.dvt || '',
+          sl,
+          dg,
+          tt,
+          i.id         || '',
         ]);
       });
     });
@@ -1774,13 +1782,17 @@ function buildTienUng() {
     { label: 'NỘI DUNG',     w: 36 },
     { label: 'ID',           w: 36 },
   ];
+  const _ungLoaiLabel = loai => {
+    if (loai === 'nhacungcap') return 'Nhà cung cấp';
+    return 'Thầu phụ';
+  };
   const rows = ungRecords
-    .filter(u => !u.deletedAt)
+    .filter(u => !u.deletedAt && u.loai !== 'congnhan')
     .map(u => [
       u.ngay || '',
-      u.loai === 'congnhan' ? 'Công nhân' : 'Thầu phụ',
+      _ungLoaiLabel(u.loai || 'thauphu'),
       u.tp || '',
-      u.congtrinh || '',
+      resolveProjectName ? resolveProjectName(u) : (u.congtrinh || ''),
       u.tien || 0,
       u.nd || '',
       u.id || '',
@@ -1939,7 +1951,7 @@ function buildHuongDan() {
     ['• Không xóa hoặc đổi tên dòng header (hàng đầu tiên của mỗi sheet)'],
     ['• Ngày theo định dạng yyyy-mm-dd (ví dụ: 2025-03-15)'],
     ['• Số tiền nhập dạng số nguyên, không có dấu chấm/phẩy/ký hiệu (ví dụ: 1500000)'],
-    ['• Sheet 4_TienUng: cột ĐỐI TƯỢNG = "Thầu phụ" hoặc "Công nhân"'],
+    ['• Sheet 4_TienUng: cột ĐỐI TƯỢNG = "Thầu phụ" hoặc "Nhà cung cấp"'],
     ['• Sheet 6_DanhMuc: cột LOẠI DANH MỤC phải khớp chính xác tên nhóm'],
     ['• Sheet 6_DanhMuc: cột EXTRA dùng cho VAI TRÒ của Công Nhân (C=Chính, T=Thợ, P=Phụ)'],
     ['• Sheet 3_ChamCong: VAI TRÒ = C (chính), T (thợ), P (phụ) — để trống nếu không có'],
@@ -1966,13 +1978,14 @@ function exportExcel() {
 
   XLSX.writeFile(wb, 'export_full_data.xlsx');
 
-  const invCount = invoices.filter(i => !i.deletedAt && !i.ccKey).length;
-  const ungCount = ungRecords.filter(u => !u.deletedAt).length;
+  const invCount = invoices.filter(i => !i.deletedAt && !i.ccKey && i.source !== 'detail' && !(Array.isArray(i.items) && i.items.length)).length;
+  const invDCount = invoices.filter(i => !i.deletedAt && !i.ccKey && (i.source === 'detail' || (Array.isArray(i.items) && i.items.length))).length;
+  const ungCount = ungRecords.filter(u => !u.deletedAt && u.loai !== 'congnhan').length;
   const cnCount  = ccData.filter(w => !w.deletedAt).reduce((s, w) => s + (w.workers || []).length, 0);
   const thuCount = thuRecords.filter(r => !r.deletedAt).length;
   const tpCount  = thauPhuContracts.filter(r => !r.deletedAt).length;
   toast(
-    `✅ Đã xuất ${invCount} HĐ · ${ungCount} ứng · ${cnCount} CN · ${thuCount} thu · ${tpCount} HĐTP → export_full_data.xlsx`,
+    `✅ Đã xuất ${invCount} HĐ nhanh · ${invDCount} HĐ chi tiết · ${ungCount} ứng · ${cnCount} CN · ${thuCount} thu · ${tpCount} HĐTP → export_full_data.xlsx`,
     'success'
   );
 }

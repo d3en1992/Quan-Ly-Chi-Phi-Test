@@ -344,11 +344,9 @@ function buildCCRow(w,num){
     // Validate: chỉ cho phép tên có trong danh mục
     const v = this.value.trim();
     if (!v) return;
-    // Tìm tên chuẩn trong danh mục (normalized) thay vì ép toUpperCase mù quáng
-    const canonical = cats.congNhan.find(n =>
-      (typeof normalizeKey === 'function' ? normalizeKey(n) : n.toLowerCase()) ===
-      (typeof normalizeKey === 'function' ? normalizeKey(v) : v.toLowerCase())
-    );
+    // Tìm tên chuẩn trong danh mục bằng normalizeKey (bỏ dấu + lowercase)
+    // → "nguyen van a" khớp "NGUYỄN VĂN A" → điền đúng tên chuẩn, không ép UPPERCASE mù quáng
+    const canonical = cats.congNhan.find(n => normalizeKey(n) === normalizeKey(v));
     if (!canonical) {
       this.style.boxShadow = 'inset 0 0 0 2px var(--red)';
       toast('⚠️ "' + v + '" không có trong danh mục công nhân!', 'error');

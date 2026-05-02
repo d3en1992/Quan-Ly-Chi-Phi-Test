@@ -259,17 +259,24 @@ function _migrateCatNamesFormat() {
   if (_catNamesMigrated) return;
   _catNamesMigrated = true;
   let changed = false;
-  // Bước 1: chuẩn hóa mảng cats sang đúng Title Case / UPPERCASE
+  // Bước 1: chuẩn hóa + dedup mảng cats (Title Case / UPPERCASE + loại bỏ bản trùng)
   ['loaiChiPhi', 'tbTen', 'nhaCungCap', 'nguoiTH', 'thauPhu', 'congNhan'].forEach(catId => {
     if (!Array.isArray(cats[catId])) return;
-    const normalized = cats[catId].map(n => normalizeName(catId, n));
-    if (JSON.stringify(normalized) !== JSON.stringify(cats[catId])) {
-      cats[catId] = normalized;
+    // normalize từng phần tử, sau đó dedup bằng normalizeKey (bắt "COPHA" vs "Copha")
+    const seen = new Set();
+    const deduped = cats[catId]
+      .map(n => normalizeName(catId, n))
+      .filter(n => {
+        const k = normalizeKey(n);
+        return k && !seen.has(k) ? (seen.add(k), true) : false;
+      });
+    if (JSON.stringify(deduped) !== JSON.stringify(cats[catId])) {
+      cats[catId] = deduped;
       saveCats(catId);
       changed = true;
     }
   });
-  if (changed) console.log('[DM] _migrateCatNamesFormat: chuẩn hóa cats xong');
+  if (changed) console.log('[DM] _migrateCatNamesFormat: chuẩn hóa + dedup cats xong');
   // Bước 2: quét và sửa tất cả data cũ trong DB
   scanAndFixAllDataFormats();
 }
@@ -673,6 +680,16 @@ function delItem(catId,idx) {
   toast(`Đã xóa "${item}"`);
 }
 
+// Dedup + sort mảng danh mục trước khi render dropdown
+// Loại bỏ phần tử rỗng, dedup bằng normalizeKey, sắp xếp tiếng Việt
+function _dedupCatArr(arr) {
+  const seen = new Set();
+  return (arr || [])
+    .filter(v => v && v.trim())
+    .filter(v => { const k = normalizeKey(v); return k && !seen.has(k) ? (seen.add(k), true) : false; })
+    .sort((a, b) => a.localeCompare(b, 'vi'));
+}
+
 function rebuildEntrySelects() {
   document.querySelectorAll('#entry-tbody [data-f="ct"]').forEach(sel=>{
     if(sel.tagName==='SELECT'){
@@ -683,18 +700,19 @@ function rebuildEntrySelects() {
   document.querySelectorAll('#entry-tbody [data-f="loai"]').forEach(sel=>{
     if(sel.tagName==='SELECT'){
       const cur=sel.value;
-      sel.innerHTML=`<option value="">-- Chọn --</option>`+[...cats.loaiChiPhi].sort((a,b)=>a.localeCompare(b,'vi')).map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+      sel.innerHTML=`<option value="">-- Chọn --</option>`+
+        _dedupCatArr(cats.loaiChiPhi).map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
     }
   });
-  // rebuild datalists for nguoi (kết hợp nguoiTH + congNhan + thauPhu) và ncc
-  const _nguoiCombo = [...new Set([...cats.nguoiTH,...cats.congNhan,...cats.thauPhu])].sort((a,b)=>a.localeCompare(b,'vi'));
+  // nguoi combo: nguoiTH + congNhan + thauPhu — dedup bằng normalizeKey
+  const _nguoiCombo = _dedupCatArr([...cats.nguoiTH, ...cats.congNhan, ...cats.thauPhu]);
   document.querySelectorAll('#entry-tbody [data-f="nguoi"]').forEach(inp=>{
     const dl=document.getElementById(inp.getAttribute('list'));
     if(dl) dl.innerHTML=_nguoiCombo.map(v=>`<option value="${x(v)}">`).join('');
   });
   document.querySelectorAll('#entry-tbody [data-f="ncc"]').forEach(inp=>{
     const dl=document.getElementById(inp.getAttribute('list'));
-    if(dl) dl.innerHTML=[...cats.nhaCungCap].sort((a,b)=>a.localeCompare(b,'vi')).map(v=>`<option value="${x(v)}">`).join('');
+    if(dl) dl.innerHTML=_dedupCatArr(cats.nhaCungCap).map(v=>`<option value="${x(v)}">`).join('');
   });
 }
 

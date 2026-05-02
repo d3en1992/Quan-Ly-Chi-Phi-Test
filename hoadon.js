@@ -15,6 +15,10 @@ function addRows(n) { for(let i=0;i<n;i++) addRow(); }
 // Rebuild tất cả dropdowns trong bảng nhập nhanh và form chi tiết
 // Gọi khi danh mục hoặc công trình thay đổi (realtime, không reload)
 function refreshEntryDropdowns() {
+  // Helper nội bộ: dedup + sort (dùng _dedupCatArr nếu danhmuc.js đã load, fallback nếu chưa)
+  const _dd = arr => typeof _dedupCatArr === 'function'
+    ? _dedupCatArr(arr)
+    : [...arr].filter(Boolean).sort((a,b)=>a.localeCompare(b,'vi'));
   document.querySelectorAll('#entry-tbody tr').forEach(tr => {
     const loaiSel  = tr.querySelector('[data-f="loai"]');
     const ctSel    = tr.querySelector('[data-f="ct"]');
@@ -23,7 +27,7 @@ function refreshEntryDropdowns() {
     if(loaiSel) {
       const v = loaiSel.value;
       loaiSel.innerHTML = '<option value="">-- Chọn --</option>' +
-        [...cats.loaiChiPhi].sort((a,b)=>a.localeCompare(b,'vi')).map(c=>`<option value="${x(c)}" ${c===v?'selected':''}>${x(c)}</option>`).join('');
+        _dd(cats.loaiChiPhi).map(c=>`<option value="${x(c)}" ${c===v?'selected':''}>${x(c)}</option>`).join('');
     }
     if(ctSel) {
       const v = ctSel.value;
@@ -32,12 +36,12 @@ function refreshEntryDropdowns() {
     if(nguoiSel) {
       const v = nguoiSel.value;
       nguoiSel.innerHTML = '<option value="">-- Chọn --</option>' +
-        [...cats.nguoiTH].sort((a,b)=>a.localeCompare(b,'vi')).map(c=>`<option value="${x(c)}" ${c===v?'selected':''}>${x(c)}</option>`).join('');
+        _dd(cats.nguoiTH).map(c=>`<option value="${x(c)}" ${c===v?'selected':''}>${x(c)}</option>`).join('');
     }
     if(nccSel) {
       const v = nccSel.value;
       nccSel.innerHTML = '<option value="">-- Chọn --</option>' +
-        [...cats.nhaCungCap].sort((a,b)=>a.localeCompare(b,'vi')).map(c=>`<option value="${x(c)}" ${c===v?'selected':''}>${x(c)}</option>`).join('');
+        _dd(cats.nhaCungCap).map(c=>`<option value="${x(c)}" ${c===v?'selected':''}>${x(c)}</option>`).join('');
     }
   });
   if(typeof _initDetailFormSelects === 'function') _initDetailFormSelects();
@@ -59,10 +63,14 @@ function addRow(d={}) {
 
   const tr = document.createElement('tr');
 
-  const loaiOpts = `<option value="">-- Chọn --</option>` + [...cats.loaiChiPhi].sort((a,b)=>a.localeCompare(b,'vi')).map(v=>`<option value="${x(v)}" ${v===(d.loai||'')?'selected':''}>${x(v)}</option>`).join('');
-  const ctOpts   = _buildProjOpts(ctDef, '-- Chọn --');
-  const nguoiOpts = `<option value="">-- Chọn --</option>` + [...cats.nguoiTH].sort((a,b)=>a.localeCompare(b,'vi')).map(v=>`<option value="${x(v)}" ${v===(d.nguoi||'')?'selected':''}>${x(v)}</option>`).join('');
-  const nccOpts   = `<option value="">-- Chọn --</option>` + [...cats.nhaCungCap].sort((a,b)=>a.localeCompare(b,'vi')).map(v=>`<option value="${x(v)}" ${v===(d.ncc||'')?'selected':''}>${x(v)}</option>`).join('');
+  // Dùng _dedupCatArr (từ danhmuc.js) để loại rỗng + trùng normalizeKey + sort tiếng Việt
+  const _dd = arr => typeof _dedupCatArr === 'function'
+    ? _dedupCatArr(arr)
+    : [...arr].filter(Boolean).sort((a,b)=>a.localeCompare(b,'vi'));
+  const loaiOpts  = `<option value="">-- Chọn --</option>` + _dd(cats.loaiChiPhi).map(v=>`<option value="${x(v)}" ${v===(d.loai||'')?'selected':''}>${x(v)}</option>`).join('');
+  const ctOpts    = _buildProjOpts(ctDef, '-- Chọn --');
+  const nguoiOpts = `<option value="">-- Chọn --</option>` + _dd(cats.nguoiTH).map(v=>`<option value="${x(v)}" ${v===(d.nguoi||'')?'selected':''}>${x(v)}</option>`).join('');
+  const nccOpts   = `<option value="">-- Chọn --</option>` + _dd(cats.nhaCungCap).map(v=>`<option value="${x(v)}" ${v===(d.ncc||'')?'selected':''}>${x(v)}</option>`).join('');
 
   tr.innerHTML = `
     <td class="row-num">${num}</td>
